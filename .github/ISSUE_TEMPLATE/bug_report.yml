@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible problem in Infinity Castle
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to report a problem. Please avoid posting security vulnerabilities here.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+      placeholder: The crow passes through a wall after...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the shortest sequence that reliably reproduces the issue.
+      placeholder: |
+        1. Open the game with seed...
+        2. Select quality tier...
+        3. Fly toward...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: Castle seed
+      description: Copy the seed from the game or URL when generation is relevant.
+      placeholder: "99"
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      description: Include browser version, operating system, and desktop or touch device.
+      placeholder: Safari 19 on macOS 16, desktop
+    validations:
+      required: true
+  - type: dropdown
+    id: quality
+    attributes:
+      label: Quality setting
+      options:
+        - Auto
+        - Ember
+        - Low
+        - High
+        - Ultra
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional context
+      description: Add console output, screenshots, or a short recording if useful.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched for an existing report of this problem.
+          required: true
+        - label: I have not included a security vulnerability in this public report.
+          required: true
+        - label: I agree to follow the project's Code of Conduct.
+          required: true
