@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#07050e" />
+  <title>無限城 — Infinity Castle</title>
+  <style>
+    :root {
+      --gold: #c9a227;
+      --gold-dim: #8a7020;
+      --ink: #e8ddc8;
+      --ink-dim: #9a8f78;
+      --panel: rgba(10, 7, 20, 0.82);
+      --line: rgba(201, 162, 39, 0.35);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #07050e;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Hiragino Mincho ProN", "Yu Mincho", Georgia, serif;
+      color: var(--ink);
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    canvas { display: block; }
+    #app { position: fixed; inset: 0; }
+    #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    #ui > * { pointer-events: auto; }
+
+    /* ---------- intro ---------- */
+    #intro {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 40%, rgba(20,12,40,0.25), rgba(5,3,10,0.88) 75%);
+      transition: opacity 0.9s ease; z-index: 30;
+    }
+    #intro.hidden { opacity: 0; pointer-events: none !important; }
+    .title-kanji {
+      font-size: clamp(64px, 14vw, 150px);
+      letter-spacing: 0.08em;
+      color: var(--ink);
+      text-shadow: 0 0 28px rgba(160, 40, 40, 0.55), 0 0 90px rgba(120, 30, 60, 0.35);
+      font-weight: 400;
+    }
+    .title-en {
+      margin-top: 6px;
+      font-size: clamp(13px, 2.4vw, 20px);
+      letter-spacing: 0.85em; text-indent: 0.85em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    .title-sub {
+      margin-top: 14px; font-style: italic; font-size: 14px; color: var(--ink-dim);
+      letter-spacing: 0.12em;
+    }
+    #start-btn {
+      margin-top: 44px;
+      padding: 14px 58px;
+      font-family: inherit; font-size: 17px; letter-spacing: 0.45em; text-indent: 0.45em;
+      color: var(--ink); background: rgba(120, 25, 25, 0.22);
+      border: 1px solid var(--line); cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    #start-btn:hover {
+      background: rgba(150, 32, 32, 0.42);
+      border-color: var(--gold);
+      box-shadow: 0 0 24px rgba(180, 60, 40, 0.35);
+    }
+    .controls-hint {
+      margin-top: 38px; display: flex; gap: 26px; flex-wrap: wrap; justify-content: center;
+      font-size: 12.5px; color: var(--ink-dim); letter-spacing: 0.08em;
+      padding: 0 20px; max-width: 720px;
+    }
+    .controls-hint b { color: var(--gold); font-weight: 400; }
+    .seed-line { margin-top: 26px; font-size: 11px; color: #56506a; letter-spacing: 0.2em; }
+
+    /* ---------- HUD ---------- */
+    #hud { position: absolute; inset: 0; display: none; }
+    #hud.on { display: block; }
+    .hud-tl, .hud-tr {
+      position: absolute; top: max(12px, env(safe-area-inset-top)); font-size: 12px; letter-spacing: 0.14em;
+      color: var(--ink-dim); line-height: 1.75; text-shadow: 0 1px 3px #000;
+    }
+    .hud-tl { left: 16px; }
+    .hud-tr { right: 16px; text-align: right; }
+    .hud-tl b, .hud-tr b { color: var(--ink); font-weight: 400; }
+    #hint {
+      position: absolute; bottom: 7%; width: 100%; text-align: center;
+      font-size: 13px; font-style: italic; color: var(--ink-dim); letter-spacing: 0.2em;
+      opacity: 0; transition: opacity 1.2s ease; text-shadow: 0 1px 4px #000;
+      pointer-events: none;
+    }
+    #hint.show { opacity: 0.9; }
+    #place {
+      position: absolute; bottom: 13%; width: 100%; text-align: center;
+      pointer-events: none; opacity: 0;
+    }
+    #place.show { animation: placeIn 6s ease forwards; }
+    @keyframes placeIn {
+      0% { opacity: 0; letter-spacing: 0.5em; }
+      12% { opacity: 1; letter-spacing: 0.34em; }
+      70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    #h-district {
+      font-size: 19px; color: var(--ink); letter-spacing: 0.34em;
+      text-shadow: 0 0 18px rgba(255,140,60,0.5), 0 2px 6px #000;
+    }
+    #h-chapter {
+      margin-top: 5px; font-size: 11px; font-style: italic; color: var(--gold);
+      letter-spacing: 0.28em; text-shadow: 0 1px 4px #000;
+    }
+    #beat-flash {
+      position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 55%, rgba(255,120,50,0.10), transparent 60%);
+      opacity: 0; transition: opacity 0.2s ease;
+    }
+
+    /* ---------- settings ---------- */
+    #gear {
+      position: absolute; top: max(10px, env(safe-area-inset-top)); right: 50%; transform: translateX(50%);
+      width: 34px; height: 34px; display: none; align-items: center; justify-content: center;
+      color: var(--gold-dim); border: 1px solid transparent; cursor: pointer; font-size: 19px;
+      transition: all 0.25s;
+    }
+    #hud.on ~ #gear, #gear.on { display: flex; }
+    #gear:hover { color: var(--gold); border-color: var(--line); }
+    #settings {
+      position: absolute; top: 54px; right: 50%; transform: translateX(50%);
+      width: min(320px, 92vw);
+      background: var(--panel); border: 1px solid var(--line);
+      padding: 18px 20px; font-size: 13px; letter-spacing: 0.06em;
+      display: none; backdrop-filter: blur(6px);
+    }
+    #settings.open { display: block; }
+    #settings h3 {
+      font-weight: 400; letter-spacing: 0.4em; font-size: 12px; color: var(--gold);
+      border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px;
+    }
+    .set-row { display: flex; align-items: center; justify-content: space-between; margin: 9px 0; gap: 10px; }
+    .set-row label { color: var(--ink-dim); }
+    .set-row select, .set-row input[type="text"] {
+      background: #120d22; color: var(--ink); border: 1px solid var(--line);
+      font-family: inherit; font-size: 12px; padding: 3px 6px; max-width: 150px;
+    }
+    .set-row input[type="range"] { width: 130px; accent-color: var(--gold); }
+    .set-row input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; }
+    .set-btn {
+      background: rgba(120,25,25,0.25); color: var(--ink); border: 1px solid var(--line);
+      font-family: inherit; font-size: 11px; letter-spacing: 0.2em; padding: 5px 12px; cursor: pointer;
+    }
+    .set-btn:hover { border-color: var(--gold); }
+
+    /* ---------- touch controls ---------- */
+    #touch-ui { position: absolute; inset: 0; display: none; }
+    #touch-ui.on { display: block; }
+    #stick-zone {
+      position: absolute; left: 0; bottom: 0; width: 44%; height: 62%;
+    }
+    #stick-base {
+      position: absolute; width: 110px; height: 110px; border-radius: 50%;
+      border: 1px solid var(--line); background: rgba(20,14,36,0.30);
+      display: none; transform: translate(-50%, -50%);
+    }
+    #stick-nub {
+      position: absolute; width: 46px; height: 46px; border-radius: 50%;
+      background: rgba(201,162,39,0.28); border: 1px solid var(--gold-dim);
+      transform: translate(-50%, -50%); left: 50%; top: 50%;
+    }
+    .tbtn {
+      position: absolute; right: 20px; width: 78px; height: 78px; border-radius: 50%;
+      border: 1px solid var(--line); background: rgba(20,14,36,0.35);
+      color: var(--ink-dim); font-size: 11px; letter-spacing: 0.2em;
+      display: flex; align-items: center; justify-content: center;
+      text-shadow: 0 1px 3px #000;
+    }
+    .tbtn.pressed { background: rgba(150,40,30,0.4); color: var(--ink); border-color: var(--gold); }
+    #btn-flap { bottom: calc(24px + env(safe-area-inset-bottom)); }
+    #btn-brake { bottom: calc(120px + env(safe-area-inset-bottom)); right: 106px; width: 64px; height: 64px; }
+
+    #rotate-hint {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      align-items: center; justify-content: center; text-align: center;
+      background: rgba(5,3,10,0.92); font-size: 15px; letter-spacing: 0.2em; color: var(--ink-dim);
+      padding: 30px;
+    }
+    @media (orientation: portrait) and (pointer: coarse) {
+      #rotate-hint.armed { display: flex; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="ui"></div>
+  <div id="rotate-hint">回転<br/><br/>rotate your device sideways<br/>the castle is wide</div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
