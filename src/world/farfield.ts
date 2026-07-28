@@ -135,6 +135,17 @@ export function buildFarDistrict(d: District, seed: number): {
     parts.push(g);
   };
 
+  /**
+   * Crown a proxy block so distant masses read as ROOFED BUILDINGS rather than
+   * boxes: a stepped eave slab, a tapered upper storey and a ridge.
+   */
+  const roof = (w: number, dep: number, x: number, yTop: number, z: number) => {
+    push(w * 1.24, 1.6, dep * 1.24, x, yTop + 0.8, z);            // deep eaves
+    push(w * 0.82, Math.min(w, dep) * 0.30, dep * 0.82, x, yTop + 2.4, z); // slope mass
+    push(w * 0.42, Math.min(w, dep) * 0.20, dep * 0.42, x, yTop + 4.0, z); // upper step
+    push(w * 0.30, 1.1, dep * 1.06, x, yTop + 4.9, z);            // ridge
+  };
+
   const H = DSIZE;
   const cellW = DSIZE / DCELLS;
 
@@ -146,18 +157,26 @@ export function buildFarDistrict(d: District, seed: number): {
       push(t, H, DSIZE - t * 2, s * (DSIZE / 2 - t / 2), 0, 0);
     }
   } else if (type === 'canyon') {
-    // two masses split by a street
+    // two masses split by a street, with roofed setbacks breaking the slab
     const w = DSIZE * 0.34;
     for (const s of [-1, 1]) {
       push(DSIZE, H * 0.95, w, 0, 0, s * (DSIZE / 2 - w / 2));
-      // stepped setbacks so the silhouette isn't a plain slab
-      push(DSIZE * 0.5, H * 0.5, w * 0.7, (rng() - 0.5) * DSIZE * 0.4, H * 0.4, s * (DSIZE / 2 - w * 0.5));
+      const sx = (rng() - 0.5) * DSIZE * 0.4;
+      push(DSIZE * 0.5, H * 0.5, w * 0.7, sx, H * 0.4, s * (DSIZE / 2 - w * 0.5));
+      roof(DSIZE * 0.5, w * 0.7, sx, H * 0.65, s * (DSIZE / 2 - w * 0.5));
+      // protruding balcony decks catch the eye and break the silhouette
+      for (let i = 0; i < 3; i++) {
+        push(DSIZE * 0.3, 1.2, w * 1.5, (rng() - 0.5) * DSIZE * 0.6, (rng() - 0.5) * H * 0.7,
+          s * (DSIZE / 2 - w * 0.2));
+      }
     }
   } else if (type === 'temple') {
     push(DSIZE * 0.9, H * 0.16, DSIZE * 0.9, 0, -H * 0.42, 0);
     push(DSIZE * 0.78, H * 0.14, DSIZE * 0.78, 0, H * 0.42, 0);
+    roof(DSIZE * 0.78, DSIZE * 0.78, 0, H * 0.49, 0);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       push(cellW * 1.4, H * 0.72, cellW * 1.4, sx * DSIZE * 0.36, 0, sz * DSIZE * 0.36);
+      roof(cellW * 1.4, cellW * 1.4, sx * DSIZE * 0.36, H * 0.36, sz * DSIZE * 0.36);
     }
   } else if (type === 'bridgeweb') {
     for (let i = 0; i < 5; i++) {
@@ -190,7 +209,14 @@ export function buildFarDistrict(d: District, seed: number): {
         const y = -DSIZE / 2 + (lo * cellW) + h / 2;
         const x = -DSIZE / 2 + (ix + step / 2) * cellW;
         const z = -DSIZE / 2 + (iz + step / 2) * cellW;
-        push(cellW * step * 0.96, h * 0.98, cellW * step * 0.96, x, y, z);
+        const bw = cellW * step * 0.96;
+        push(bw, h * 0.98, bw, x, y, z);
+        // every column is crowned, so a distant district reads as a roofscape
+        roof(bw, bw, x, y + h / 2, z);
+        // occasional projecting balcony storey
+        if (rng() < 0.45) {
+          push(bw * 1.25, 1.4, bw * 1.25, x, y + (rng() - 0.5) * h * 0.6, z);
+        }
       }
     }
   }
