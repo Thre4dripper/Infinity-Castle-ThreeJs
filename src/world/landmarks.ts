@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/rng';
 import { Kit, bakeShading, buildGlowPoints } from '../kit/geoUtils';
-import { opaqueMat, emissiveMat, glowMat, C } from '../kit/materials';
+import { opaqueMat, emissiveMat, glowMat, bindAssembly, C } from '../kit/materials';
 import {
   pillar, bracketCluster, railing, stairs, torii, lantern, lanternHang,
   lanternTiny, lanternString, floorPlanks, slabBase, pavilion,
@@ -270,12 +270,15 @@ export function buildLandmark(d: District): LandmarkData | null {
   const root = new THREE.Group();
   const disposables: THREE.BufferGeometry[] = [];
   let triCount = 0;
+  // landmarks are colossal, so they assemble slowly and never dissolve
+  const times = { t0: -1e9, t1: Infinity };
 
   if (opaque) {
     bakeShading(opaque, glows, DSIZE * 0.8);
     opaque.computeBoundingSphere();
     const m = new THREE.Mesh(opaque, opaqueMat);
     m.matrixAutoUpdate = false;
+    bindAssembly(m, times);
     root.add(m);
     disposables.push(opaque);
     triCount += (opaque.index?.count ?? 0) / 3;
@@ -284,6 +287,7 @@ export function buildLandmark(d: District): LandmarkData | null {
     emissive.computeBoundingSphere();
     const m = new THREE.Mesh(emissive, emissiveMat);
     m.matrixAutoUpdate = false;
+    bindAssembly(m, times);
     root.add(m);
     disposables.push(emissive);
     triCount += (emissive.index?.count ?? 0) / 3;

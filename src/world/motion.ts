@@ -137,20 +137,11 @@ export class Choreographer {
 
     // ---- push the composed world transform down to each cell ----
     for (const cell of node.cells.values()) {
-      let scale = 1;
-      const su = (this.now - cell.spawnTime) / 0.7;
-      if (su < 1) {
-        const e = easeOutCubic(Math.max(su, 0));
-        scale = 0.9 + 0.1 * e;
-        cell.root.scale.setScalar(scale);
-      } else if (cell.root.scale.x !== 1) {
-        cell.root.scale.setScalar(1);
-      }
       _scratch.copy(cell.localPos).applyQuaternion(_q).add(node.pos);
       cell.curPos.copy(_scratch);
       cell.curQuat.copy(_q);
       cell.invQuat.copy(node.invQuat);
-      cell.curScale = scale;
+      cell.curScale = 1;
     }
   }
 

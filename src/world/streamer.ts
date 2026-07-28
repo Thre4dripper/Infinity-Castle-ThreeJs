@@ -69,6 +69,8 @@ export class World {
   private center: [number, number, number] = [NaN, 0, 0];
   private centerD: [number, number, number] = [NaN, 0, 0];
   private queue: [number, number, number][] = [];
+  /** cells mid-dissolve: kept alive until their unbuild animation finishes */
+  private dying: { cell: CellData; node: DistrictNode; until: number }[] = [];
 
   constructor(seed: number) {
     this.seed = seed;
@@ -101,6 +103,7 @@ export class World {
   }
 
   update(playerPos: THREE.Vector3, timeNow: number): void {
+    this.now = timeNow;
     const cc = this.cellOf(playerPos);
     if (cc[0] !== this.center[0] || cc[1] !== this.center[1] || cc[2] !== this.center[2]) {
       this.center = cc;
@@ -139,6 +142,17 @@ export class World {
         this.cellCount++;
       }
     }
+
+    // retire cells whose dissolve has finished
+    for (let i = this.dying.length - 1; i >= 0; i--) {
+      if (timeNow >= this.dying[i].until) {
+        const { cell, node } = this.dying[i];
+        node.group.remove(cell.root);
+        for (const g of cell.disposables) g.dispose();
+        this.dying.splice(i, 1);
+        this.cellCount--;
+      }
+    }
   }
 
   private recenterCells(): void {
@@ -156,7 +170,7 @@ export class World {
       if (this.districts.get(d.key)?.cells.has(key)) continue;
       this.queue.push([x, y, z]);
     }
-    // evict far cells
+    // evict far cells — they unbuild themselves before being released
     const evictSq = (this.radiusCells + 0.9) ** 2;
     for (const node of this.districts.values()) {
       for (const [key, cell] of node.cells) {
@@ -164,14 +178,16 @@ export class World {
         const dy = cell.cell[1] - cy;
         const dz = cell.cell[2] - cz;
         if (dx * dx + dy * dy + dz * dz > evictSq) {
-          node.group.remove(cell.root);
-          for (const g of cell.disposables) g.dispose();
+          cell.times.t1 = this.now;
+          this.dying.push({ cell, node, until: this.now + 1.6 });
           node.cells.delete(key);
-          this.cellCount--;
         }
       }
     }
   }
+
+  /** Latest frame time, used to schedule dissolves. */
+  now = 0;
 
   private recenterDistricts(): void {
     const [dx, dy, dz] = this.centerD;
@@ -232,6 +248,13 @@ export class World {
   }
 
   private disposeNode(node: DistrictNode): void {
+    for (let i = this.dying.length - 1; i >= 0; i--) {
+      if (this.dying[i].node === node) {
+        for (const g of this.dying[i].cell.disposables) g.dispose();
+        this.dying.splice(i, 1);
+        this.cellCount--;
+      }
+    }
     for (const cell of node.cells.values()) {
       for (const g of cell.disposables) g.dispose();
       this.cellCount--;
@@ -249,6 +272,11 @@ export class World {
   }
 
   reseed(seed: number): void {
+    for (const d of this.dying) {
+      d.node.group.remove(d.cell.root);
+      for (const g of d.cell.disposables) g.dispose();
+    }
+    this.dying.length = 0;
     for (const node of this.districts.values()) this.disposeNode(node);
     this.districts.clear();
     this.queue.length = 0;

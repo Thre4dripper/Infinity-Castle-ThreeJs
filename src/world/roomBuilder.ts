@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { hash3, rngFor } from '../core/rng';
 import { Kit, bakeShading, buildGlowPoints } from '../kit/geoUtils';
-import { opaqueMat, emissiveMat, glowMat, C } from '../kit/materials';
+import { opaqueMat, emissiveMat, glowMat, bindAssembly, C } from '../kit/materials';
 import { pickArchetype, buildRoofCap, Open } from './archetypes';
 import { floorPlanks, railing, lanternHang, lanternString, wallLattice, stairs } from '../kit/parts';
 import {
@@ -62,6 +62,8 @@ export interface CellData {
   localPos: THREE.Vector3;
   district: District;
   spawnTime: number;
+  /** shared with the shader: t0 = assembly start, t1 = dissolve start */
+  times: { t0: number; t1: number };
   triCount: number;
   // world transform written by the choreographer, read by collision:
   curPos: THREE.Vector3;
@@ -194,7 +196,19 @@ export function buildCell(
   const roomGeos = [...k.opaque, ...k.emissive];
   if (roomGeos.length > 0 && !q.equals(new THREE.Quaternion())) {
     _mat.makeRotationFromQuaternion(q);
-    for (const g of roomGeos) g.applyMatrix4(_mat);
+    for (const g of roomGeos) {
+      g.applyMatrix4(_mat);
+      // applyMatrix4 only touches position/normal — rotate the assembly
+      // centroids too or parts fly in from the wrong direction
+      const cent = g.getAttribute('aCent') as THREE.BufferAttribute | undefined;
+      if (cent) {
+        for (let i = 0; i < cent.count; i++) {
+          _v.set(cent.getX(i), cent.getY(i), cent.getZ(i)).applyQuaternion(q);
+          cent.setXYZ(i, _v.x, _v.y, _v.z);
+        }
+        cent.needsUpdate = true;
+      }
+    }
     for (const gl of k.glows) {
       _v.set(gl.x, gl.y, gl.z).applyQuaternion(q);
       gl.x = _v.x; gl.y = _v.y; gl.z = _v.z;
@@ -234,12 +248,15 @@ export function buildCell(
   const root = new THREE.Group();
   const disposables: THREE.BufferGeometry[] = [];
   let triCount = 0;
+  // assembly window shared by this cell's meshes; despawn starts at Infinity
+  const times = { t0: timeNow, t1: Infinity };
 
   if (opaque) {
     bakeShading(opaque, glows, 6.4);
     opaque.computeBoundingSphere();
     const m = new THREE.Mesh(opaque, opaqueMat);
     m.matrixAutoUpdate = false;
+    bindAssembly(m, times);
     root.add(m);
     disposables.push(opaque);
     triCount += (opaque.index ? opaque.index.count : opaque.getAttribute('position').count) / 3;
@@ -248,6 +265,7 @@ export function buildCell(
     emissive.computeBoundingSphere();
     const m = new THREE.Mesh(emissive, emissiveMat);
     m.matrixAutoUpdate = false;
+    bindAssembly(m, times);
     root.add(m);
     disposables.push(emissive);
     triCount += (emissive.index ? emissive.index.count : emissive.getAttribute('position').count) / 3;
@@ -276,6 +294,7 @@ export function buildCell(
     localPos,
     district,
     spawnTime: timeNow,
+    times,
     triCount,
     curPos: new THREE.Vector3(cx * CELL, cy * CELL, cz * CELL),
     curQuat: new THREE.Quaternion(),

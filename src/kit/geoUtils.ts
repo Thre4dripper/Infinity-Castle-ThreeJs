@@ -109,6 +109,7 @@ export class Kit {
     }
     g.applyMatrix4(_m1);
     if (!g.getAttribute('color')) paint(g, color, o.jit ?? 0, this.rng);
+    this.tagAssembly(g);
     if (o.em) this.emissive.push(g);
     else this.opaque.push(g);
     if (o.collide) {
@@ -116,6 +117,33 @@ export class Kit {
       const b = g.boundingBox!;
       this.colliders.push(b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z);
     }
+  }
+
+  /**
+   * Stamp every vertex of a finished part with the part's centroid and its
+   * place in the assembly order. Buildings then write themselves into
+   * existence from the ground up instead of popping in whole.
+   */
+  private tagAssembly(g: THREE.BufferGeometry): void {
+    g.computeBoundingBox();
+    const b = g.boundingBox!;
+    const ccx = (b.min.x + b.max.x) * 0.5;
+    const ccy = (b.min.y + b.max.y) * 0.5;
+    const ccz = (b.min.z + b.max.z) * 0.5;
+    // bottom-up, with a little scatter so it never looks like a wipe
+    const jitter = ((Math.sin(ccx * 12.9898 + ccz * 78.233) * 43758.5453) % 1 + 1) % 1;
+    const order = Math.min(Math.max((ccy + 8) / 17, 0), 1) * 0.72 + jitter * 0.28;
+    const n = g.getAttribute('position').count;
+    const cent = new Float32Array(n * 3);
+    const build = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      cent[i * 3] = ccx;
+      cent[i * 3 + 1] = ccy;
+      cent[i * 3 + 2] = ccz;
+      build[i] = order;
+    }
+    g.setAttribute('aCent', new THREE.BufferAttribute(cent, 3));
+    g.setAttribute('aBuild', new THREE.BufferAttribute(build, 1));
   }
 
   /** Explicit AABB collider in frame coordinates. */
