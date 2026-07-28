@@ -2,8 +2,9 @@ import { C } from '../kit/materials';
 import { Kit } from '../kit/geoUtils';
 import {
   ROOM, slabBase, floorTatami, floorPlanks, pillar, bracketCluster, railing,
-  stairs, torii, lantern, lanternHang, lanternPost, lanternString, wallShoji,
-  wallPlaster, wallLattice, wallPlanks, openingTrim, engawa, pavilion,
+  stairs, torii, lantern, lanternHang, lanternPost, lanternTiny, lanternString,
+  wallShoji, wallPlaster, wallLattice, wallPlanks, openingTrim, engawa, pavilion,
+  roofHip, noren, teaSet, brazier, incense, futon, tree, waterChannel, stoneLantern,
 } from '../kit/parts';
 
 // Local face indices: 0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
@@ -13,6 +14,35 @@ type Builder = (k: Kit, rng: () => number, open: Open) => void;
 const { FLOOR, CEIL, WALL, SPAN } = ROOM;
 const W_INNER = 10.7;
 const CORNER = 5.42;
+
+/**
+ * Scatter small evidence that someone was here a moment ago. Called on
+ * floor-bearing rooms; keeps the castle inhabited rather than abandoned.
+ */
+function signsOfLife(k: Kit, rng: () => number, y: number): void {
+  const roll = rng();
+  if (roll < 0.28) {
+    k.box(2.0, 0.12, 1.2, 0.5, y + 0.36, -0.4, C.WOOD_D, { jit: 0.1 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      k.box(0.14, 0.32, 0.14, 0.5 + sx * 0.85, y + 0.16, -0.4 + sz * 0.45, C.WOOD_D);
+    }
+    teaSet(k, 0.5, y + 0.43, -0.4);
+    k.box(0.7, 0.1, 0.7, -0.9, y + 0.05, 0.7, C.LACQ_B, { jit: 0.25, ry: rng() });
+  } else if (roll < 0.46) {
+    brazier(k, (rng() - 0.5) * 4, y, (rng() - 0.5) * 4, 1);
+    if (rng() < 0.6) futon(k, 2.6, y, -2.6, rng() * 3);
+  } else if (roll < 0.6) {
+    incense(k, (rng() - 0.5) * 5, y, (rng() - 0.5) * 5);
+  } else if (roll < 0.72) {
+    futon(k, (rng() - 0.5) * 4, y, (rng() - 0.5) * 4, rng() * 3);
+    k.box(0.5, 0.6, 0.4, -3.4, y + 0.3, 3.2, C.WOOD_D, { jit: 0.2 });
+  }
+  // a stray sandal pair or storage chest against a wall
+  if (rng() < 0.35) {
+    k.box(1.3, 0.7, 0.7, -4.0, y + 0.35, rng() * 6 - 3, C.WOOD_D, { jit: 0.2, collide: true });
+    k.box(1.36, 0.1, 0.74, -4.0, y + 0.72, rng() * 6 - 3, C.METAL, { jit: 0.2 });
+  }
+}
 
 /** Lateral face frames: [faceIndex] -> kit.begin args. */
 const FACES: { f: number; x: number; z: number; q: number }[] = [
@@ -94,6 +124,8 @@ function shell(k: Kit, rng: () => number, open: Open, o: ShellOpts = {}): void {
       const roll = rng();
       if (roll < 0.42) {
         openingTrim(k, W_INNER, y0, y1, { ranma: rng() < 0.7, lanterns: rng() < 0.35 });
+        // a noren hung in the opening — wind moves it
+        if (hasFloor && rng() < 0.45) noren(k, 0, FLOOR + 3.4, 0.2, 3.0, 1.2);
       } else if (roll < 0.58 && hasFloor) {
         railing(k, 0, FLOOR, 0.1, W_INNER * 0.9, true);
       }
@@ -134,6 +166,7 @@ const tatamiHall: Builder = (k, rng, open) => {
     k.box(1.4, 1.9, 0.07, sx * 3.0, FLOOR + 0.97, -3.8, C.METAL, { ry: 0.3, jit: 0.25 });
     k.box(1.4, 1.9, 0.07, sx * 4.2, FLOOR + 0.97, -3.6, C.METAL, { ry: -0.3, jit: 0.25 });
   }
+  signsOfLife(k, rng, FLOOR);
 };
 
 const plankHall: Builder = (k, rng, open) => {
@@ -153,6 +186,7 @@ const plankHall: Builder = (k, rng, open) => {
     bracketCluster(k, -2.8, (open[2] ? 5.0 : CEIL) - 0.62, 0);
     bracketCluster(k, 2.8, (open[2] ? 5.0 : CEIL) - 0.62, 0);
   }
+  if (!open[3]) signsOfLife(k, rng, FLOOR);
 };
 
 const stairShaft: Builder = (k, rng, open) => {
