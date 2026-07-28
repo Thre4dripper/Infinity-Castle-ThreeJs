@@ -186,7 +186,8 @@ function lanternBodyGeo(r: number, h: number): THREE.BufferGeometry {
   const arr = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     const t = Math.min(Math.max((pos.getY(i) + h / 2) / h, 0), 1);
-    const band = 0.86 + 0.14 * Math.sin(t * Math.PI * 7);
+    // bamboo hoop ribs read clearly instead of a smooth blob
+    const band = 0.68 + 0.32 * Math.abs(Math.sin(t * Math.PI * 9));
     const c = t < 0.5 ? _c1.clone().lerp(_c2, t * 2) : _c2.clone().lerp(_c3, (t - 0.5) * 2);
     arr[i * 3] = c.r * band;
     arr[i * 3 + 1] = c.g * band;
@@ -317,9 +318,14 @@ export function wallPlaster(k: Kit, w: number, y0: number, y1: number, o: { wind
     const ww = Math.min(2.4, w * 0.3);
     const wh = h * 0.34;
     const lit = k.rng() < 0.65;
-    k.box(ww, wh, 0.26, 0, mid + h * 0.08, 0, lit ? C.PAPER : 0x0a0604, { em: lit, jit: 0.25 });
-    for (let i = 0; i <= 5; i++) {
-      k.box(0.07, wh, 0.1, -ww / 2 + (ww * i) / 5, mid + h * 0.08, 0.14, C.WOOD_D);
+    k.box(ww, wh, 0.2, 0, mid + h * 0.08, 0, lit ? C.PAPER_DIM : 0x0a0604, { em: lit, jit: 0.25 });
+    // mullions on BOTH faces so a lit window reads as joinery from outside too
+    for (const side of [0.14, -0.14]) {
+      for (let i = 0; i <= 5; i++) {
+        k.box(0.07, wh, 0.1, -ww / 2 + (ww * i) / 5, mid + h * 0.08, side, C.WOOD_D);
+      }
+      k.box(ww, 0.08, 0.1, 0, mid + h * 0.08 + wh * 0.2, side, C.WOOD_D);
+      k.box(ww, 0.08, 0.1, 0, mid + h * 0.08 - wh * 0.22, side, C.WOOD_D);
     }
     k.box(ww + 0.3, 0.12, 0.36, 0, mid + h * 0.08 - wh / 2, 0, C.WOOD_D);
     k.box(ww + 0.3, 0.12, 0.36, 0, mid + h * 0.08 + wh / 2, 0, C.WOOD_D);
