@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { hash3, rngFor } from '../core/rng';
 import { Kit, bakeShading, buildGlowPoints } from '../kit/geoUtils';
 import { opaqueMat, emissiveMat, glowMat, C } from '../kit/materials';
-import { pickArchetype, Open } from './archetypes';
+import { pickArchetype, buildRoofCap, Open } from './archetypes';
 import { floorPlanks, railing, lanternHang, lanternString, wallLattice, stairs } from '../kit/parts';
 import {
-  CELL, District, districtAtCell, isOccupied, faceOpen, connectorAt,
+  CELL, District, districtAtCell, isOccupied, faceOpen, connectorAt, isRoofCell, isBaseCell,
 } from './districts';
 
 export { CELL } from './districts';
@@ -211,6 +211,23 @@ export function buildCell(
 
   // ---- connectors are built AFTER baking, in true cell space ----
   for (const [axis, kind] of conns) buildConnector(k, axis, kind, rng);
+
+  // ---- crown the building: roofs and undercrofts are always world-aligned ----
+  if (occupied && isRoofCell(cx, cy, cz, seed)) {
+    buildRoofCap(k, rng);
+  }
+  if (occupied && isBaseCell(cx, cy, cz, seed)) {
+    // underbelly: joists and hanging lanterns so buildings never look sawn off
+    for (let i = -1; i <= 1; i++) {
+      k.box(11.0, 0.4, 0.5, 0, -5.9, i * 3.6, C.WOOD_D, { jit: 0.15 });
+      k.box(0.5, 0.4, 11.0, i * 3.6, -6.25, 0, C.WOOD_D, { jit: 0.15 });
+    }
+    k.box(9.0, 0.5, 9.0, 0, -6.6, 0, C.TRIM_DARK, { jit: 0.12 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      k.box(0.5, 1.8, 0.5, sx * 4.2, -7.2, sz * 4.2, C.WOOD_D, { rz: sx * 0.16, rx: -sz * 0.16, jit: 0.15 });
+    }
+    if (rng() < 0.6) lanternHang(k, 0, -6.9, 0, 0.9 + rng(), 1.0);
+  }
 
   const glows = k.glows;
   const { opaque, emissive } = k.merge();
