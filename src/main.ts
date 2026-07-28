@@ -121,7 +121,7 @@ function game(): void {
     motes.setCount(s.motes);
     post.setEnabled(s.bloom);
     // fog is thin enough to see landmarks and far-field districts loom
-    baseFog = 0.85 / (s.radiusCells * CELL);
+    baseFog = 0.75 / (s.radiusCells * CELL);
   };
   quality.onChange((s) => applyTier(s));
   applyTier(quality.settings);
@@ -195,10 +195,9 @@ function game(): void {
     engine.fog.density += (targetFog - engine.fog.density) * Math.min(dt * 0.6, 1);
     glowUniforms.uFog.value = engine.fog.density;
     fxUniforms.uFogDensity.value = engine.fog.density;
-    fxUniforms.uFogColor.value.copy(engine.fog.color);
+    fxUniforms.uTime.value = t;
     farUniforms.uFogDensity.value = engine.fog.density;
     farUniforms.uTime.value = t;
-    farUniforms.uFogColor.value.copy(engine.fog.color);
 
     sky.mesh.position.copy(engine.camera.position);
     sky.uniforms.uTime.value = t;

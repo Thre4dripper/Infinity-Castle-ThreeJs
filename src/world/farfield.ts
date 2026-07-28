@@ -13,7 +13,8 @@ import { District, DSIZE, DCELLS, isOccupied } from './districts';
 
 export const farUniforms = {
   uTime: { value: 0 },
-  uFogColor: { value: new THREE.Color(0x160b08) },
+  uFogColor: fxUniforms.uFogColor,
+  uFogGlow: fxUniforms.uFogGlow,
   uFogDensity: { value: 0.02 },
   uEncode: fxUniforms.uEncode,
 };
@@ -43,6 +44,7 @@ export const farMat = new THREE.ShaderMaterial({
     varying float vSeed;
     uniform float uTime;
     uniform vec3 uFogColor;
+    uniform vec3 uFogGlow;
     uniform float uFogDensity;
     uniform float uEncode;
 
@@ -87,18 +89,21 @@ export const farMat = new THREE.ShaderMaterial({
       float slab = smoothstep(0.90, 1.0, f.y) * 0.22;
       float post = smoothstep(0.94, 1.0, abs(f.x - 0.5) * 2.0) * 0.12;
 
-      vec3 base = vec3(0.017, 0.011, 0.009);
+      vec3 base = vec3(0.09, 0.055, 0.038);
       base *= 0.5 + 0.5 * (an.y * 1.15 + an.x * 0.7 + an.z * 0.9);
       base *= 0.75 + 0.5 * sg;
 
       vec3 col = base
-               + warm * win * lit * flick * 0.7
-               + vec3(0.13, 0.06, 0.026) * (slab + post);
+               + warm * win * lit * flick * 1.15
+               + vec3(0.26, 0.13, 0.05) * (slab + post);
 
-      // manual exponential-squared fog to match the scene
+      // aerial perspective: the deep distance becomes glowing gold air and
+      // actively emits, so the castle burns all the way to the horizon
       float fd = vDist * uFogDensity;
       float fog = 1.0 - exp(-fd * fd);
-      col = mix(col, uFogColor, clamp(fog, 0.0, 1.0));
+      float far = smoothstep(55.0, 290.0, vDist);
+      col = mix(col, mix(uFogColor, uFogGlow, far), clamp(fog, 0.0, 1.0));
+      col += uFogGlow * 0.20 * far * far;
 
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col, 1.0);

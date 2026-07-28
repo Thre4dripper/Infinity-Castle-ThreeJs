@@ -93,32 +93,41 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
         float h = d.y;
         float t = uTime;
 
-        // warm haze: the void is never black — it is full of glowing air with
-        // the light of a million lanterns scattered through it
-        float band = exp(-abs(h + 0.06) * 3.4);
-        vec3 haze = vec3(0.085, 0.042, 0.030);
-        haze += vec3(0.52, 0.21, 0.075) * band;
-        haze += vec3(0.34, 0.12, 0.04) * smoothstep(-0.15, -0.85, h) * 0.9;
-        haze *= 1.0 - 0.42 * smoothstep(0.15, 0.8, h);
+        // ------------------------------------------------------------------
+        // The far background is NOT sky. It is more castle, lit from within by
+        // a million lanterns, receding until it becomes pure glowing haze.
+        // This is the painted-backdrop trick: unreachable, always luminous.
+        // ------------------------------------------------------------------
+        float band = exp(-abs(h + 0.02) * 2.2);
+        vec3 haze = vec3(0.24, 0.115, 0.062);            // ambient burning air
+        haze += vec3(0.86, 0.50, 0.20) * band;           // incandescent horizon
+        haze += vec3(0.50, 0.24, 0.09) * smoothstep(-0.1, -0.9, h);  // furnace below
+        haze += vec3(0.26, 0.13, 0.15) * smoothstep(0.1, 0.85, h);   // ember heavens
 
-        // three layers, far to near: farther = fainter mass, dimmer windows;
-        // slow differential drift sells depth (the castle itself is turning)
-        vec4 L2 = castleLayer(d, 290.0, 61.7, 0.45, 0.55, t * 0.6);
-        vec4 L1 = castleLayer(d, 180.0, 17.3, 0.52, 0.30, t * 0.8);
-        vec4 L0 = castleLayer(d, 105.0, 0.0, 0.60, 0.12, t);
+        // five parallax shells of endless castle, drifting at different rates.
+        // Far shells stay bright — depth reads as haze, never as darkness.
+        vec4 L4 = castleLayer(d, 430.0, 91.3, 0.40, 0.85, t * 0.45);
+        vec4 L3 = castleLayer(d, 340.0, 61.7, 0.42, 0.62, t * 0.55);
+        vec4 L2 = castleLayer(d, 250.0, 33.1, 0.46, 0.42, t * 0.7);
+        vec4 L1 = castleLayer(d, 175.0, 17.3, 0.50, 0.26, t * 0.85);
+        vec4 L0 = castleLayer(d, 110.0, 0.0, 0.56, 0.11, t);
 
         vec3 col = haze;
-        col = mix(col, col * 0.80, L2.a); col += L2.rgb * 0.26;
-        col = mix(col, col * 0.62, L1.a); col += L1.rgb * 0.42;
-        col = mix(col, vec3(0.030, 0.017, 0.014) + col * 0.26, L0.a); col += L0.rgb * 0.62;
+        // each nearer shell occludes a little more and adds more window light,
+        // but even the nearest only darkens the haze to a warm brown
+        col = mix(col, col * 0.94, L4.a); col += L4.rgb * 0.30;
+        col = mix(col, col * 0.88, L3.a); col += L3.rgb * 0.40;
+        col = mix(col, col * 0.80, L2.a); col += L2.rgb * 0.52;
+        col = mix(col, col * 0.70, L1.a); col += L1.rgb * 0.66;
+        col = mix(col, col * 0.58, L0.a); col += L0.rgb * 0.82;
 
         col += emberField(d, t);
 
-        // blood moon behind the haze
+        // blood moon burning through the haze
         vec3 moonDir = normalize(vec3(0.42, 0.34, -0.62));
         float md = dot(d, moonDir);
-        col += vec3(0.50, 0.07, 0.06) * smoothstep(0.99930, 0.99965, md) * (1.0 - L0.a) * (1.0 - L1.a);
-        col += vec3(0.16, 0.02, 0.02) * pow(smoothstep(0.984, 1.0, md), 3.0);
+        col += vec3(0.85, 0.16, 0.10) * smoothstep(0.99930, 0.99965, md);
+        col += vec3(0.32, 0.07, 0.05) * pow(smoothstep(0.978, 1.0, md), 2.4);
 
         // authored in display space; linearize when the composer re-encodes
         if (uEncode < 0.5) col = pow(col, vec3(2.2));
