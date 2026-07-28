@@ -21,7 +21,10 @@ export type DistrictType =
   | 'bridgeweb'
   | 'temple'
   | 'rotating'
-  | 'void';
+  | 'void'
+  | 'lanternOcean'
+  | 'hangingGarden'
+  | 'cathedralVoid';
 
 export type LandmarkType =
   | 'none'
@@ -72,19 +75,19 @@ export const DISTRICTS: Record<DistrictType, DistrictDef> = {
   },
   shaft: {
     type: 'shaft', label: 'the great shaft', fill: 0.82, openness: 0.52, flip: 0.16,
-    fogMul: 0.6, motion: 'drift',
+    fogMul: 0.8, motion: 'drift',
     pool: ['balcony-ring', 'stair-shaft', 'plank-hall', 'corridor', 'suspended'],
     landmarks: ['greatPillar', 'endlessStair', 'suspendedShrine'],
   },
   bridgeweb: {
     type: 'bridgeweb', label: 'bridge web', fill: 0.13, openness: 0.85, flip: 0.2,
-    fogMul: 0.5, motion: 'drift',
+    fogMul: 0.75, motion: 'drift',
     pool: ['bridge', 'void-lattice', 'gate', 'suspended'],
     landmarks: ['none', 'suspendedShrine', 'colossalTorii'],
   },
   temple: {
     type: 'temple', label: 'hanging temple', fill: 0.5, openness: 0.8, flip: 0.05,
-    fogMul: 0.45, motion: 'breathe',
+    fogMul: 0.7, motion: 'breathe',
     pool: ['cathedral-bay', 'pavilion-isle', 'gate', 'bridge'],
     landmarks: ['lanternChamber', 'invertedPagoda', 'suspendedShrine'],
   },
@@ -96,9 +99,27 @@ export const DISTRICTS: Record<DistrictType, DistrictDef> = {
   },
   void: {
     type: 'void', label: 'the open void', fill: 0.05, openness: 0.95, flip: 0.5,
-    fogMul: 0.32, motion: 'drift',
+    fogMul: 0.62, motion: 'drift',
     pool: ['suspended', 'bridge', 'void-lattice'],
     landmarks: ['none', 'suspendedShrine', 'invertedPagoda', 'endlessStair'],
+  },
+  lanternOcean: {
+    type: 'lanternOcean', label: 'the lantern ocean', fill: 0.34, openness: 0.88, flip: 0.18,
+    fogMul: 1.7, motion: 'drift',
+    pool: ['lantern-cloud', 'lantern-cloud', 'suspended', 'balcony-ring', 'bridge'],
+    landmarks: ['lanternChamber', 'lanternChamber', 'suspendedShrine'],
+  },
+  hangingGarden: {
+    type: 'hangingGarden', label: 'the hanging garden', fill: 0.3, openness: 0.9, flip: 0.04,
+    fogMul: 0.55, motion: 'breathe',
+    pool: ['garden', 'garden', 'pavilion-isle', 'bridge'],
+    landmarks: ['none', 'suspendedShrine', 'colossalTorii'],
+  },
+  cathedralVoid: {
+    type: 'cathedralVoid', label: 'the cathedral void', fill: 0.03, openness: 0.97, flip: 0.3,
+    fogMul: 0.55, motion: 'drift',
+    pool: ['bridge', 'suspended', 'void-lattice'],
+    landmarks: ['invertedPagoda', 'greatPillar', 'colossalTorii', 'endlessStair'],
   },
 };
 
@@ -123,35 +144,39 @@ interface ChapterDef {
 const CHAPTERS: ChapterDef[] = [
   {
     name: 'the sleeping wards', depth: 0.2, weight: 12, density: 1.0,
-    seq: ['residential', 'residential', 'canyon', 'residential', 'labyrinth', 'residential', 'canyon', 'void'],
+    seq: ['residential', 'residential', 'canyon', 'lanternOcean', 'residential', 'labyrinth', 'canyon', 'cathedralVoid'],
   },
   {
     name: 'the descent', depth: -0.7, weight: 11, density: 0.95,
-    seq: ['shaft', 'shaft', 'shaft', 'bridgeweb', 'shaft', 'void', 'shaft', 'labyrinth'],
+    seq: ['shaft', 'shaft', 'cathedralVoid', 'bridgeweb', 'shaft', 'void', 'shaft', 'labyrinth'],
   },
   {
     name: 'the tangled quarter', depth: -0.2, weight: 10, density: 1.05,
-    seq: ['labyrinth', 'labyrinth', 'canyon', 'labyrinth', 'void', 'labyrinth', 'residential', 'labyrinth'],
+    seq: ['labyrinth', 'labyrinth', 'canyon', 'lanternOcean', 'void', 'labyrinth', 'residential', 'canyon'],
   },
   {
     name: 'the hanging temples', depth: 0.5, weight: 9, density: 0.85,
-    seq: ['temple', 'void', 'temple', 'bridgeweb', 'temple', 'void', 'temple', 'bridgeweb'],
+    seq: ['temple', 'hangingGarden', 'temple', 'bridgeweb', 'temple', 'cathedralVoid', 'lanternOcean', 'bridgeweb'],
   },
   {
     name: 'the web', depth: 0.1, weight: 9, density: 0.85,
-    seq: ['bridgeweb', 'bridgeweb', 'void', 'bridgeweb', 'canyon', 'bridgeweb', 'void', 'bridgeweb'],
+    seq: ['bridgeweb', 'bridgeweb', 'cathedralVoid', 'bridgeweb', 'canyon', 'bridgeweb', 'hangingGarden', 'lanternOcean'],
   },
   {
     name: 'the turning halls', depth: -0.3, weight: 8, density: 0.9,
-    seq: ['rotating', 'residential', 'rotating', 'void', 'rotating', 'canyon', 'rotating', 'bridgeweb'],
+    seq: ['rotating', 'residential', 'rotating', 'void', 'rotating', 'canyon', 'rotating', 'lanternOcean'],
   },
   {
     name: 'the great canyons', depth: 0.0, weight: 9, density: 1.0,
-    seq: ['canyon', 'canyon', 'residential', 'canyon', 'shaft', 'canyon', 'void', 'canyon'],
+    seq: ['canyon', 'canyon', 'residential', 'canyon', 'shaft', 'canyon', 'cathedralVoid', 'lanternOcean'],
   },
   {
     name: 'the abyss', depth: -1.0, weight: 8, density: 0.6,
-    seq: ['void', 'shaft', 'void', 'void', 'bridgeweb', 'void', 'shaft', 'void'],
+    seq: ['cathedralVoid', 'shaft', 'void', 'cathedralVoid', 'bridgeweb', 'void', 'shaft', 'lanternOcean'],
+  },
+  {
+    name: 'the quiet gardens', depth: 0.7, weight: 6, density: 0.8,
+    seq: ['hangingGarden', 'temple', 'hangingGarden', 'lanternOcean', 'hangingGarden', 'bridgeweb', 'residential', 'cathedralVoid'],
   },
 ];
 
@@ -274,8 +299,43 @@ function localCell(c: number): number {
   return ((c % DCELLS) + DCELLS) % DCELLS;
 }
 
+/**
+ * FLIGHT DESIGN — carve aerial highways and atriums through dense districts
+ * before anything is built. These are the sweeping paths a crow can glide
+ * along without fighting collision, and they turn a solid block into
+ * multi-level streets with roofs lining them.
+ */
+function flightVoid(d: District, lx: number, ly: number, lz: number): boolean {
+  const t = d.def.type;
+  if (t === 'void' || t === 'bridgeweb' || t === 'cathedralVoid' || t === 'temple') return false;
+  const s = d.seed;
+
+  // two crossing highways at different levels → multi-level streets
+  const alongZ = (s & 1) === 0;
+  const hy1 = 1 + ((s >>> 1) % 4);
+  const row1 = 1 + ((s >>> 3) % 4);
+  if (ly === hy1 && (alongZ ? lz === row1 : lx === row1)) return true;
+
+  const hy2 = 1 + ((s >>> 5) % 4);
+  const row2 = 1 + ((s >>> 7) % 4);
+  if (ly === hy2 && (alongZ ? lx === row2 : lz === row2)) return true;
+
+  // a vertical light-well joining the two levels
+  if (lx === row1 && lz === row2) return true;
+
+  // an atrium: a round hollow carved out of the densest districts
+  if (t === 'residential' || t === 'labyrinth' || t === 'canyon') {
+    const ax = 1.5 + ((s >>> 9) % 3);
+    const ay = 1.5 + ((s >>> 13) % 3);
+    const az = 1.5 + ((s >>> 11) % 3);
+    if (Math.hypot(lx - ax, ly - ay, lz - az) < 1.7) return true;
+  }
+  return false;
+}
+
 /** Structural mask: does the district's *shape* allow architecture here? */
 function shapeAllows(d: District, lx: number, ly: number, lz: number): boolean {
+  if (flightVoid(d, lx, ly, lz)) return false;
   switch (d.def.type) {
     case 'shaft': {
       // hollow tower: thick walls, gaping vertical core
@@ -300,6 +360,9 @@ function shapeAllows(d: District, lx: number, ly: number, lz: number): boolean {
     case 'bridgeweb':
     case 'void':
     case 'rotating':
+    case 'lanternOcean':
+    case 'hangingGarden':
+    case 'cathedralVoid':
     default:
       return true;
   }
@@ -311,6 +374,24 @@ export function isOccupied(cx: number, cy: number, cz: number, seed: number): bo
   if (!shapeAllows(d, localCell(cx), localCell(cy), localCell(cz))) return false;
   const p = Math.min(0.97, d.def.fill * d.density);
   return rand3(cx, cy, cz, seed ^ OCC_SALT) < p;
+}
+
+/**
+ * Is this cell the top of a building column? Those get a proper hipped roof,
+ * which is what turns a stack of cells into a COMPLETE BUILDING rather than a
+ * cut-off box.
+ */
+export function isRoofCell(cx: number, cy: number, cz: number, seed: number): boolean {
+  if (!isOccupied(cx, cy, cz, seed)) return false;
+  if (isOccupied(cx, cy + 1, cz, seed)) return false;
+  const t = districtAtCell(cx, cy, cz, seed).def.type;
+  return t !== 'bridgeweb' && t !== 'void' && t !== 'cathedralVoid' && t !== 'lanternOcean';
+}
+
+/** Is this cell the bottom of a column? Gets an underbelly of supports. */
+export function isBaseCell(cx: number, cy: number, cz: number, seed: number): boolean {
+  if (!isOccupied(cx, cy, cz, seed)) return false;
+  return !isOccupied(cx, cy - 1, cz, seed);
 }
 
 /** Shared-face openness. The lower cell owns the face, so both sides agree. */
