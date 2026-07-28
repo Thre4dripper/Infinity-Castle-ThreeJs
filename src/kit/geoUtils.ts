@@ -163,7 +163,9 @@ export function bakeShading(g: THREE.BufferGeometry, glows: Glow[], half = 5): v
     const sx = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(x)) * inv2, 0), 1);
     const sy = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(y)) * inv2, 0), 1);
     const sz = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(z)) * inv2, 0), 1);
-    const ao = (sx * sy * sz) * (0.84 + 0.16 * ((y + half) / (half * 2)));
+    // AO never crushes to black — darkness lives between districts, not inside
+    // buildings, so the floor is lifted well off zero
+    const ao = 0.55 + 0.45 * (sx * sy * sz) * (0.84 + 0.16 * ((y + half) / (half * 2)));
     let warm = 0;
     for (let j = 0; j < glows.length; j++) {
       const gl = glows[j];

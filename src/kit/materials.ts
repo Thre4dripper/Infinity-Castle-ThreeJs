@@ -14,25 +14,25 @@ export const fxUniforms = {
 // shares ONE basic material. This keeps rooms at ~2 draw calls each.
 // ---------------------------------------------------------------------------
 export const C = {
-  WOOD_D: 0x2a1c0c,
-  WOOD: 0x4a3418,
-  WOOD_L: 0x6b4e24,
-  WOOD_PALE: 0x846c3c,
-  LACQ: 0x77200f,
-  LACQ_B: 0xa03518,
-  PLASTER: 0x8a7c5e,
-  PLASTER_D: 0x59503c,
-  TATAMI: 0x56623a,
-  TATAMI_D: 0x364224,
-  TRIM_DARK: 0x1c130a,
-  STONE: 0x413c42,
-  METAL: 0x9a8138,
-  ROPE: 0x54432a,
-  PAPER: 0xa8834e,
-  PAPER_DIM: 0x6f5838,
-  LANT_TOP: 0xffe6b8,
-  LANT: 0xff9a45,
-  LANT_DEEP: 0xd7521a,
+  WOOD_D: 0x402c15,
+  WOOD: 0x664923,
+  WOOD_L: 0x8a6531,
+  WOOD_PALE: 0xa88a52,
+  LACQ: 0x8f2a12,
+  LACQ_B: 0xc0431d,
+  PLASTER: 0xa8956d,
+  PLASTER_D: 0x6f6448,
+  TATAMI: 0x6e7c46,
+  TATAMI_D: 0x4a5630,
+  TRIM_DARK: 0x2b1d0f,
+  STONE: 0x5a545c,
+  METAL: 0xbfa04a,
+  ROPE: 0x6b5636,
+  PAPER: 0xd0a463,
+  PAPER_DIM: 0x8f7448,
+  LANT_TOP: 0xffbe74,
+  LANT: 0xff8f3c,
+  LANT_DEEP: 0xcf4a16,
   GLOW: 0xffa050,
   WINDOW: 0xd98e3f,
 } as const;
@@ -157,11 +157,14 @@ export const crowMat = new THREE.ShaderMaterial({
       vec3 n = normalize(vN);
       vec3 v = normalize(vV);
       float ndv = abs(dot(n, v));
-      float fr = pow(1.0 - ndv, 3.2);
-      vec3 irid = mix(vec3(0.10, 0.14, 0.40), vec3(0.26, 0.08, 0.36), 0.5 + 0.5 * sin(ndv * 9.0));
+      // warm rim from the lantern-sea keeps the crow readable against anything
+      float rim = pow(1.0 - ndv, 2.4);
       vec3 L = normalize((viewMatrix * vec4(0.35, 1.0, 0.18, 0.0)).xyz);
       float dl = max(dot(n, L), 0.0);
-      vec3 col = vec3(0.010, 0.010, 0.015) + vec3(0.020, 0.022, 0.032) * dl + irid * fr * 0.22;
+      vec3 col = vec3(0.030, 0.028, 0.040)
+               + vec3(0.055, 0.058, 0.085) * dl
+               + vec3(0.55, 0.30, 0.13) * rim * 0.55
+               + vec3(0.10, 0.13, 0.34) * rim * 0.35;
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col, 1.0);
     }

@@ -93,13 +93,13 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
         float h = d.y;
         float t = uTime;
 
-        // warm haze: bright ember band near the horizon, dark above,
-        // smouldering furnace glow below (all display-space values)
-        float band = exp(-abs(h + 0.06) * 4.5);
-        vec3 haze = vec3(0.045, 0.022, 0.030);                  // dark violet-brown air
-        haze += vec3(0.42, 0.16, 0.05) * band;                  // horizon ember band
-        haze += vec3(0.30, 0.10, 0.03) * smoothstep(-0.15, -0.85, h) * 0.8; // abyss glow
-        haze *= 1.0 - 0.55 * smoothstep(0.15, 0.75, h);         // darker heavens
+        // warm haze: the void is never black — it is full of glowing air with
+        // the light of a million lanterns scattered through it
+        float band = exp(-abs(h + 0.06) * 3.4);
+        vec3 haze = vec3(0.085, 0.042, 0.030);
+        haze += vec3(0.52, 0.21, 0.075) * band;
+        haze += vec3(0.34, 0.12, 0.04) * smoothstep(-0.15, -0.85, h) * 0.9;
+        haze *= 1.0 - 0.42 * smoothstep(0.15, 0.8, h);
 
         // three layers, far to near: farther = fainter mass, dimmer windows;
         // slow differential drift sells depth (the castle itself is turning)
@@ -108,9 +108,9 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
         vec4 L0 = castleLayer(d, 105.0, 0.0, 0.60, 0.12, t);
 
         vec3 col = haze;
-        col = mix(col, col * 0.72, L2.a); col += L2.rgb * 0.22;
-        col = mix(col, col * 0.55, L1.a); col += L1.rgb * 0.38;
-        col = mix(col, vec3(0.016, 0.010, 0.010) + col * 0.18, L0.a); col += L0.rgb * 0.60;
+        col = mix(col, col * 0.80, L2.a); col += L2.rgb * 0.26;
+        col = mix(col, col * 0.62, L1.a); col += L1.rgb * 0.42;
+        col = mix(col, vec3(0.030, 0.017, 0.014) + col * 0.26, L0.a); col += L0.rgb * 0.62;
 
         col += emberField(d, t);
 

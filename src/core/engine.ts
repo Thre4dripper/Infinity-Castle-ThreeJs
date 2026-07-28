@@ -34,13 +34,13 @@ export class Engine {
       stencil: false,
     });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.28;
+    this.renderer.toneMappingExposure = 1.55;
     this.renderer.shadowMap.enabled = false;
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x080404);
-    this.fog = new THREE.FogExp2(0x160b08, 0.03);
+    this.fog = new THREE.FogExp2(0x2a1410, 0.03);
     this.scene.fog = this.fog;
 
     this.camera = new THREE.PerspectiveCamera(
@@ -51,12 +51,12 @@ export class Engine {
     );
     this.camera.position.set(0, 0, 10);
 
-    // Lighting: one hemisphere + one cool directional. No shadows, no point
-    // lights — warm lantern light is baked into vertex colors at build time.
-    // Ground bounce is warm so facades catch the lantern-sea below.
-    this.hemi = new THREE.HemisphereLight(0x3a2f52, 0x4a2810, 4.6);
+    // Lighting: warm lantern-dominated. The hemisphere carries a strong amber
+    // bounce from the lantern-sea below so nothing ever reads as pure black;
+    // the directional is a cool counter-light for shape separation.
+    this.hemi = new THREE.HemisphereLight(0x4a3a5e, 0x6b3a16, 5.6);
     this.scene.add(this.hemi);
-    this.dir = new THREE.DirectionalLight(0x9aa0cc, 2.6);
+    this.dir = new THREE.DirectionalLight(0x9aa0cc, 2.2);
     this.dir.position.set(0.35, 1, 0.18);
     this.scene.add(this.dir);
 
