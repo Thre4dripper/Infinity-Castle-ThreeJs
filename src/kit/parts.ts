@@ -450,3 +450,218 @@ export function ornamentSphere(r: number): THREE.BufferGeometry {
   paint(g, C.METAL);
   return g;
 }
+
+// ---------------------------------------------------------------------------
+// roofs — what turns a stack of cells into a COMPLETE BUILDING
+// ---------------------------------------------------------------------------
+
+/**
+ * Irimoya-style hipped roof: deep overhanging eaves, tiled slopes, a ridge
+ * with ornaments, upturned corner tips and visible under-bracketing.
+ */
+export function roofHip(k: Kit, w: number, d: number, yBase: number, h = 3.2): void {
+  const ow = w + 2.6; // eave overhang
+  const od = d + 2.6;
+
+  // eave board + under-bracketing, seen from below when you fly under it
+  k.box(ow, 0.42, od, 0, yBase + 0.2, 0, C.TRIM_DARK, { jit: 0.1, collide: true });
+  k.box(ow - 0.5, 0.24, od - 0.5, 0, yBase - 0.05, 0, C.WOOD_D, { jit: 0.15 });
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      bracketCluster(k, sx * (w / 2 - 0.4), yBase - 0.8, sz * (d / 2 - 0.4), 0.55);
+    }
+  }
+  k.box(ow, 0.2, 0.3, 0, yBase - 0.35, od / 2 - 0.2, C.WOOD_D, { jit: 0.1 });
+  k.box(ow, 0.2, 0.3, 0, yBase - 0.35, -od / 2 + 0.2, C.WOOD_D, { jit: 0.1 });
+
+  // four slopes, stepped so the silhouette reads as tile courses
+  const steps = 4;
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    const t2 = (i + 1) / steps;
+    const y = yBase + 0.4 + h * t;
+    const iw = ow * (1 - t * 0.62);
+    const id = od * (1 - t * 0.62);
+    const nw = ow * (1 - t2 * 0.62);
+    const nd = od * (1 - t2 * 0.62);
+    const sh = h / steps;
+    // slope panels on each of the four sides
+    k.box(iw, sh + 0.14, (id - nd) / 2 + 0.5, 0, y + sh / 2, (id + nd) / 4, C.TRIM_DARK, { jit: 0.1 });
+    k.box(iw, sh + 0.14, (id - nd) / 2 + 0.5, 0, y + sh / 2, -(id + nd) / 4, C.TRIM_DARK, { jit: 0.1 });
+    k.box((iw - nw) / 2 + 0.5, sh + 0.14, nd, (iw + nw) / 4, y + sh / 2, 0, C.TRIM_DARK, { jit: 0.1 });
+    k.box((iw - nw) / 2 + 0.5, sh + 0.14, nd, -(iw + nw) / 4, y + sh / 2, 0, C.TRIM_DARK, { jit: 0.1 });
+  }
+
+  // tile ridge lines running down the slopes
+  const ridges = Math.max(3, Math.round(w / 1.6));
+  for (let i = 0; i <= ridges; i++) {
+    const x = -ow / 2 + (ow * i) / ridges;
+    k.box(0.14, 0.5, od * 0.42, x, yBase + 0.55, od * 0.28, C.WOOD_D, { rx: -0.55, jit: 0.2 });
+    k.box(0.14, 0.5, od * 0.42, x, yBase + 0.55, -od * 0.28, C.WOOD_D, { rx: 0.55, jit: 0.2 });
+  }
+
+  // ridge beam + ornaments
+  const ry = yBase + 0.4 + h;
+  k.box(w * 0.52, 0.6, 1.1, 0, ry, 0, C.TRIM_DARK, { jit: 0.08, collide: true });
+  k.box(w * 0.56, 0.26, 0.5, 0, ry + 0.4, 0, C.WOOD_D, { jit: 0.1 });
+  for (const s of [-1, 1]) {
+    // shibi ornaments at the ridge ends
+    k.box(0.5, 0.9, 0.5, s * w * 0.25, ry + 0.75, 0, C.METAL, { rz: s * 0.22, jit: 0.15 });
+  }
+
+  // upturned corner tips
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      k.box(1.5, 0.28, 0.7, sx * (ow / 2 - 0.5), yBase + 0.55, sz * (od / 2 - 0.5), C.TRIM_DARK, {
+        rz: sx * 0.34, rx: -sz * 0.3, jit: 0.1,
+      });
+      lanternHang(k, sx * (ow / 2 - 0.4), yBase + 0.05, sz * (od / 2 - 0.4), 0.5, 0.85);
+    }
+  }
+}
+
+/** Lean-to roof for narrow structures (corridors, bridges). */
+export function roofShed(k: Kit, w: number, d: number, yBase: number, h = 1.5): void {
+  k.box(w + 1.4, 0.3, d, 0, yBase, 0, C.TRIM_DARK, { jit: 0.1, collide: true });
+  for (const s of [-1, 1]) {
+    k.box(w * 0.62, 0.26, d, s * w * 0.28, yBase + h * 0.5, 0, C.TRIM_DARK, { rz: s * 0.62, jit: 0.1 });
+  }
+  k.box(0.5, 0.34, d, 0, yBase + h, 0, C.WOOD_D, { jit: 0.1 });
+  const n = Math.max(2, Math.round(d / 2.2));
+  for (let i = 0; i <= n; i++) {
+    k.box(w + 1.2, 0.1, 0.12, 0, yBase + 0.2, -d / 2 + (d * i) / n, C.WOOD_D, { jit: 0.2 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// signs of life — someone was here a moment ago
+// ---------------------------------------------------------------------------
+
+/** Noren: a split fabric curtain hung in a doorway. */
+export function noren(k: Kit, cx: number, yTop: number, cz: number, w = 2.4, h = 1.1): void {
+  const col = k.rng() < 0.5 ? C.LACQ : 0x2a3348;
+  k.box(w + 0.2, 0.1, 0.1, cx, yTop, cz, C.WOOD_D);
+  const panels = 3;
+  for (let i = 0; i < panels; i++) {
+    const pw = w / panels - 0.06;
+    const sway = (k.rng() - 0.5) * 0.13;
+    k.box(pw, h, 0.05, cx - w / 2 + (w * (i + 0.5)) / panels, yTop - h / 2, cz, col, {
+      rz: sway, jit: 0.22,
+    });
+  }
+  k.box(w, 0.14, 0.07, cx, yTop - h * 0.28, cz + 0.02, C.PAPER_DIM, { jit: 0.2 });
+}
+
+/** Tea left on a tray — still warm. */
+export function teaSet(k: Kit, x: number, y: number, z: number): void {
+  k.box(0.62, 0.05, 0.42, x, y, z, C.LACQ_B, { jit: 0.15 });
+  const pot = new THREE.CylinderGeometry(0.11, 0.13, 0.15, 7);
+  pot.deleteAttribute('uv');
+  k.place(pot, x - 0.13, y + 0.1, z, C.TRIM_DARK);
+  k.box(0.14, 0.03, 0.03, x + 0.02, y + 0.12, z, C.TRIM_DARK);
+  for (let i = 0; i < 2; i++) {
+    const cup = new THREE.CylinderGeometry(0.055, 0.045, 0.06, 6);
+    cup.deleteAttribute('uv');
+    k.place(cup, x + 0.14, y + 0.055, z + (i ? 0.11 : -0.11), C.PAPER_DIM);
+  }
+}
+
+/** A brazier with live coals — the warmest thing in the room. */
+export function brazier(k: Kit, x: number, y: number, z: number, s = 1): void {
+  const bowl = new THREE.CylinderGeometry(0.34 * s, 0.24 * s, 0.3 * s, 9);
+  bowl.deleteAttribute('uv');
+  k.place(bowl, x, y + 0.15 * s, z, C.TRIM_DARK);
+  k.box(0.8 * s, 0.06 * s, 0.8 * s, x, y + 0.02, z, C.WOOD_D, { jit: 0.15 });
+  const coals = new THREE.SphereGeometry(0.22 * s, 7, 4);
+  coals.deleteAttribute('uv');
+  paint(coals, C.LANT_DEEP, 0.35, k.rng);
+  k.place(coals, x, y + 0.28 * s, z, 0, { em: true });
+  k.glow(x, y + 0.3 * s, z, 1.9 * s, 0xff6a22);
+}
+
+/** Incense stand with a thread of smoke drifting up. */
+export function incense(k: Kit, x: number, y: number, z: number): void {
+  k.box(0.26, 0.1, 0.26, x, y + 0.05, z, C.TRIM_DARK, { jit: 0.15 });
+  k.box(0.02, 0.34, 0.02, x, y + 0.27, z, C.WOOD_L);
+  const tip = new THREE.SphereGeometry(0.028, 5, 4);
+  tip.deleteAttribute('uv');
+  paint(tip, C.LANT);
+  k.place(tip, x, y + 0.45, z, 0, { em: true });
+  // smoke: a few translucent-looking wisps leaning as they rise
+  for (let i = 0; i < 4; i++) {
+    const t = i / 4;
+    k.box(0.035 + t * 0.06, 0.5, 0.035 + t * 0.06,
+      x + Math.sin(t * 4 + k.rng()) * (0.1 + t * 0.28), y + 0.7 + i * 0.48, z + Math.cos(t * 3) * (0.08 + t * 0.2),
+      0x2a2320, { rz: (k.rng() - 0.5) * 0.5, jit: 0.3 });
+  }
+  k.glow(x, y + 0.45, z, 0.9, 0xff8a3a);
+}
+
+/** Folded futon and a low screen — someone slept here. */
+export function futon(k: Kit, x: number, y: number, z: number, rot = 0): void {
+  k.box(1.9, 0.16, 1.1, x, y + 0.08, z, C.PAPER_DIM, { ry: rot, jit: 0.2 });
+  k.box(1.7, 0.14, 0.9, x, y + 0.22, z, 0x6a4a3c, { ry: rot, jit: 0.25 });
+  k.box(0.5, 0.14, 0.34, x - 0.6, y + 0.3, z, C.PAPER, { ry: rot, jit: 0.15 });
+}
+
+// ---------------------------------------------------------------------------
+// garden — the rare quiet district
+// ---------------------------------------------------------------------------
+
+/** Gnarled procedural tree with layered foliage. */
+export function tree(k: Kit, x: number, yBase: number, z: number, s = 1): void {
+  const h = (2.6 + k.rng() * 1.8) * s;
+  k.box(0.34 * s, h, 0.34 * s, x, yBase + h / 2, z, 0x2f2114, { jit: 0.2, collide: true });
+  // two leaning branches
+  for (const sx of [-1, 1]) {
+    k.box(0.2 * s, h * 0.5, 0.2 * s, x + sx * 0.4 * s, yBase + h * 0.72, z, 0x2f2114, { rz: sx * 0.6, jit: 0.2 });
+  }
+  // foliage as stacked flattened clusters
+  const layers = 3;
+  for (let i = 0; i < layers; i++) {
+    const t = i / layers;
+    const r = (1.9 - t * 0.55) * s;
+    const col = k.rng() < 0.25 ? 0x6a2a30 : 0x2c3a22; // occasional maple
+    k.box(r * 2, 0.55 * s, r * 2, x + (k.rng() - 0.5) * 0.4, yBase + h + i * 0.62 * s, z + (k.rng() - 0.5) * 0.4,
+      col, { ry: k.rng(), jit: 0.35 });
+  }
+}
+
+/** A still water channel that catches the lantern light. */
+export function waterChannel(k: Kit, cx: number, y: number, cz: number, w: number, len: number, alongX = true): void {
+  const put = (bw: number, bh: number, bd: number, px: number, py: number, pz: number, col: number, o: BoxOptsLike = {}) =>
+    alongX ? k.box(bw, bh, bd, px, py, pz, col, o) : k.box(bd, bh, bw, pz, py, px, col, o);
+  put(len, 0.3, w + 0.7, cx, y - 0.15, cz, C.STONE, { jit: 0.2 });
+  // dark reflective surface, slightly emissive so it glows like still water
+  put(len - 0.3, 0.06, w, cx, y + 0.02, cz, 0x24303a, { em: true, jit: 0.25 });
+  for (const s of [-1, 1]) {
+    put(len, 0.22, 0.3, cx, y + 0.08, cz + s * (w / 2 + 0.28), C.STONE, { jit: 0.25 });
+  }
+  // stepping stones
+  const n = Math.max(2, Math.round(len / 3));
+  for (let i = 0; i < n; i++) {
+    put(0.8, 0.18, 0.8, cx - len / 2 + (len * (i + 0.5)) / n, y + 0.1, cz, C.STONE, { jit: 0.3 });
+  }
+}
+
+interface BoxOptsLike {
+  rx?: number;
+  ry?: number;
+  rz?: number;
+  jit?: number;
+  em?: boolean;
+  collide?: boolean;
+}
+
+/** Stone lantern (tōrō) — garden punctuation. */
+export function stoneLantern(k: Kit, x: number, yBase: number, z: number, s = 1): void {
+  k.box(0.7 * s, 0.22 * s, 0.7 * s, x, yBase + 0.11 * s, z, C.STONE, { jit: 0.2 });
+  k.box(0.26 * s, 0.9 * s, 0.26 * s, x, yBase + 0.6 * s, z, C.STONE, { jit: 0.15 });
+  k.box(0.62 * s, 0.14 * s, 0.62 * s, x, yBase + 1.12 * s, z, C.STONE, { jit: 0.15 });
+  k.box(0.46 * s, 0.42 * s, 0.46 * s, x, yBase + 1.4 * s, z, C.LANT, { em: true, jit: 0.2 });
+  k.box(0.86 * s, 0.16 * s, 0.86 * s, x, yBase + 1.68 * s, z, C.TRIM_DARK, { jit: 0.15 });
+  const cap = new THREE.SphereGeometry(0.13 * s, 6, 4);
+  cap.deleteAttribute('uv');
+  k.place(cap, x, yBase + 1.82 * s, z, C.STONE);
+  k.glow(x, yBase + 1.4 * s, z, 2.2 * s, C.GLOW);
+}
