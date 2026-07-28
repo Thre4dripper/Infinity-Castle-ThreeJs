@@ -433,6 +433,73 @@ function lanternTinyRing(k: Kit, y: number, s: number, rng: () => number): void 
   }
 }
 
+/** Quiet garden terrace: trees, still water, stone lanterns. */
+const garden: Builder = (k, rng, open) => {
+  shell(k, rng, open, { floor: 'none', pillars: false, walls: false });
+  const y = FLOOR + 0.2;
+  slabBase(k, SPAN, SPAN, y, 0.7);
+  // moss ground with a raked gravel strip
+  k.box(SPAN - 0.4, 0.1, SPAN - 0.4, 0, y + 0.02, 0, 0x33401f, { jit: 0.3 });
+  k.box(SPAN * 0.42, 0.12, SPAN - 0.6, -SPAN * 0.26, y + 0.06, 0, 0x6c6450, { jit: 0.22 });
+
+  waterChannel(k, 0, y + 0.1, SPAN * 0.22, 1.8, SPAN - 0.8, rng() < 0.5);
+
+  const trees = 2 + Math.floor(rng() * 3);
+  for (let i = 0; i < trees; i++) {
+    tree(k, (rng() - 0.5) * 8, y + 0.08, (rng() - 0.5) * 8, 0.85 + rng() * 0.5);
+  }
+  for (let i = 0; i < 3; i++) {
+    stoneLantern(k, (rng() - 0.5) * 9, y + 0.08, (rng() - 0.5) * 9, 0.9 + rng() * 0.4);
+  }
+  // rocks
+  for (let i = 0; i < 4; i++) {
+    const s = 0.5 + rng() * 0.9;
+    k.box(s, s * 0.7, s * 0.85, (rng() - 0.5) * 9, y + s * 0.3, (rng() - 0.5) * 9, C.STONE, {
+      ry: rng() * 3, rz: (rng() - 0.5) * 0.3, jit: 0.3, collide: true,
+    });
+  }
+  // a low railing along the open edges so the terrace reads as tended
+  for (const face of FACES) {
+    if (!open[face.f]) continue;
+    k.begin(face.x * 0.94, 0, face.z * 0.94, face.q);
+    railing(k, 0, y, 0, SPAN - 0.6, true, 0.8);
+    k.end();
+  }
+  if (rng() < 0.5) pavilion(k, 3.0, y + 0.08, -3.0, 3.4, 2.8);
+};
+
+/** Buildings dissolving into a warm cloud of drifting lanterns. */
+const lanternCloud: Builder = (k, rng, open) => {
+  shell(k, rng, open, { floor: 'none', pillars: false, walls: false });
+  // a fragment of architecture half-swallowed by the glow
+  if (rng() < 0.75) {
+    const y = FLOOR + 1 + rng() * 3;
+    const s = 4.5 + rng() * 3;
+    slabBase(k, s, s, y, 0.5);
+    floorPlanks(k, s - 0.4, s - 0.4, y + 0.001, rng() < 0.5);
+    railing(k, 0, y, -s / 2 + 0.3, s - 0.6, true);
+    railing(k, s / 2 - 0.3, y, 0, s - 0.6, false);
+    if (rng() < 0.6) {
+      k.begin(0, 0, 0, Math.floor(rng() * 4));
+      wallShoji(k, s - 0.6, y, y + 4.2, { gap: rng() < 0.5 ? 2.4 : 0 });
+      k.end();
+      roofHip(k, s * 0.8, s * 0.8, y + 4.4, 2.2);
+    }
+    for (let i = 0; i < 4; i++) {
+      lanternHang(k, (rng() - 0.5) * s * 0.7, y + 4.0, (rng() - 0.5) * s * 0.7, 0.6 + rng(), 1.1);
+    }
+  }
+  // the ocean itself
+  const n = 26 + Math.floor(rng() * 20);
+  for (let i = 0; i < n; i++) {
+    lanternTiny(k, (rng() - 0.5) * 11.4, (rng() - 0.5) * 11.4, (rng() - 0.5) * 11.4, 0.7 + rng() * 0.8);
+  }
+  // a few long strings drifting through
+  for (let i = 0; i < 3; i++) {
+    lanternString(k, -5.7, (rng() - 0.5) * 10, (rng() - 0.5) * 10, 5.7, (rng() - 0.5) * 10, (rng() - 0.5) * 10, 6);
+  }
+};
+
 // ---------------------------------------------------------------------------
 
 export interface ArchetypeDef {
@@ -455,7 +522,17 @@ export const ARCHETYPES: ArchetypeDef[] = [
   { name: 'cell-room', build: cellRoom, weight: () => 12 },
   { name: 'cathedral-bay', build: cathedralBay, weight: () => 12 },
   { name: 'suspended', build: suspended, weight: () => 10 },
+  { name: 'garden', build: garden, weight: () => 12 },
+  { name: 'lantern-cloud', build: lanternCloud, weight: () => 12 },
 ];
+
+/**
+ * Crown a building column with a real roof. Called in CELL space after the
+ * room's orientation has been baked, so roofs always point at world up.
+ */
+export function buildRoofCap(k: Kit, rng: () => number): void {
+  roofHip(k, SPAN - 0.6, SPAN - 0.6, 5.6, 2.6 + rng() * 1.6);
+}
 
 const BY_NAME = new Map(ARCHETYPES.map((a) => [a.name, a]));
 
