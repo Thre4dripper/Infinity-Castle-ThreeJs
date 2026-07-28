@@ -77,7 +77,7 @@ export class Choreographer {
       this.updateDistrict(node, t, inten);
     }
 
-    this.waves = this.waves.filter((w) => t - w.start < w.dur + 600 / w.speed);
+    this.waves = this.waves.filter((w) => t - w.start < w.dur + 900 / w.speed);
   }
 
   private updateDistrict(node: DistrictNode, t: number, inten: number): void {
@@ -160,22 +160,24 @@ export class Choreographer {
       dir.add(WAVE_AXES[Math.floor(rng() * 6)].clone().multiplyScalar(0.5)).normalize();
     }
     const origin = playerPos.clone().add(
-      new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize().multiplyScalar(30 + rng() * 90)
+      new THREE.Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize().multiplyScalar(40 + rng() * 140)
     );
-    const speed = 40 + rng() * 40;
+    // geological, not mechanical: the front crawls and the shift takes
+    // the better part of a minute to complete
+    const speed = 14 + rng() * 16;
     const wave: Wave = {
       id: ++this.waveCount,
       origin,
       start: t,
       speed,
-      dur: 4.5 + rng() * 3.0,
+      dur: 16 + rng() * 14,
       dir,
-      amp: 9 + rng() * 12,
+      amp: 14 + rng() * 22,
       arrival: t + origin.distanceTo(playerPos) / speed,
       arrivalFired: false,
     };
     this.waves.push(wave);
-    this.nextWaveAt = t + (16 + rng() * 14) / Math.max(this.intensity, 0.35);
-    this.onBeat?.(wave.arrival - t, Math.min(wave.amp / 16, 1));
+    this.nextWaveAt = t + (42 + rng() * 38) / Math.max(this.intensity, 0.35);
+    this.onBeat?.(wave.arrival - t, Math.min(wave.amp / 26, 1));
   }
 }
