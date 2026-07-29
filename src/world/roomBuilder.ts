@@ -287,6 +287,10 @@ export function buildCell(
     cz * CELL - district.cz
   );
   root.position.copy(localPos);
+  // cells never move relative to their district — hundreds of matrix
+  // recompositions per frame for nothing
+  root.updateMatrix();
+  root.matrixAutoUpdate = false;
 
   return {
     cell: [cx, cy, cz],
