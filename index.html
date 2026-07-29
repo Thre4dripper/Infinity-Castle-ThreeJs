@@ -124,12 +124,55 @@
     /* ---------- settings ---------- */
     #gear {
       position: absolute; top: max(10px, env(safe-area-inset-top)); right: 50%; transform: translateX(50%);
-      width: 34px; height: 34px; display: none; align-items: center; justify-content: center;
-      color: var(--gold-dim); border: 1px solid transparent; cursor: pointer; font-size: 19px;
+      height: 32px; padding: 0 12px; display: none; align-items: center; justify-content: center; gap: 7px;
+      color: var(--gold-dim); border: 1px solid rgba(200,160,90,0.3); cursor: pointer; font-size: 16px;
+      background: rgba(12,7,20,0.5); backdrop-filter: blur(4px);
       transition: all 0.25s;
     }
+    #gear span { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; }
     #hud.on ~ #gear, #gear.on { display: flex; }
-    #gear:hover { color: var(--gold); border-color: var(--line); }
+    #gear:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+    /* ---------- first-flight tour ---------- */
+    #tour {
+      position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 45%, rgba(30,12,8,0.72), rgba(5,3,10,0.9));
+      backdrop-filter: blur(3px); z-index: 40;
+    }
+    #tour.open { display: flex; }
+    #tour-card {
+      width: min(560px, 92vw); max-height: 86vh; overflow-y: auto;
+      background: var(--panel); border: 1px solid var(--line);
+      padding: 26px 30px; letter-spacing: 0.05em;
+    }
+    #tour-card h3 {
+      font-weight: 400; letter-spacing: 0.42em; font-size: 13px; color: var(--gold);
+      border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 16px;
+    }
+    .tour-row {
+      display: flex; gap: 14px; align-items: baseline; margin: 12px 0;
+      font-size: 13px; line-height: 1.55; color: var(--ink-dim);
+    }
+    .tour-row b {
+      flex: 0 0 108px; color: var(--gold-dim); font-weight: 400;
+      letter-spacing: 0.18em; font-size: 11px; text-align: right;
+    }
+    #tour-go {
+      display: block; margin: 20px auto 2px; padding: 10px 26px;
+      background: rgba(120,25,25,0.3); color: var(--ink); border: 1px solid var(--line);
+      font-family: inherit; font-size: 12px; letter-spacing: 0.32em; cursor: pointer;
+      transition: all 0.25s;
+    }
+    #tour-go:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ---------- cursor-freed banner ---------- */
+    #cursor-hint {
+      position: absolute; top: 52px; right: 50%; transform: translateX(50%);
+      padding: 6px 14px; font-size: 11px; letter-spacing: 0.14em; color: var(--gold-dim);
+      background: rgba(12,7,20,0.55); border: 1px solid rgba(200,160,90,0.2);
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+    }
+    #cursor-hint.show { opacity: 1; }
     #settings {
       position: absolute; top: 54px; right: 50%; transform: translateX(50%);
       width: min(320px, 92vw);

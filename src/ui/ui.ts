@@ -31,6 +31,7 @@ export interface HudData {
 const HINTS = [
   IS_TOUCH ? 'hold FLAP to surge forward · BRAKE to hover' : 'hold SPACE to surge · SHIFT to brake',
   'the castle rearranges itself — listen for the biwa',
+  IS_TOUCH ? 'drag the right side of the screen to steer' : 'press ESC to free the cursor · ⛩ settings up top',
   IS_TOUCH ? 'drag the right side of the screen to steer' : 'press R to grow a new castle',
   'lanterns mark the inhabited rooms',
   'dive into the dark — it goes down forever',
@@ -46,6 +47,16 @@ export class UI {
   private settings!: HTMLElement;
   private hintIdx = 0;
   private hintTimer: number | null = null;
+  private started = false;
+
+  /** Everything that actually starts the game — shared by intro and tour. */
+  private begin(): void {
+    this.started = true;
+    this.intro.classList.add('hidden');
+    this.hud.classList.add('on');
+    this.startHints();
+    this.o.onStart();
+  }
 
   constructor(private o: UIOptions) {
     const ui = document.getElementById('ui')!;
@@ -85,7 +96,25 @@ export class UI {
         <div class="tbtn" id="btn-flap">FLAP</div>
         <div class="tbtn" id="btn-brake">BRAKE</div>
       </div>
-      <div id="gear">⛩</div>
+      <div id="gear">⛩<span>settings</span></div>
+      <div id="tour">
+        <div id="tour-card">
+          <h3>BEFORE YOU TAKE WING</h3>
+          ${
+            IS_TOUCH
+              ? `<div class="tour-row"><b>FLY</b>left stick steers · drag the right side to look · FLAP surges · BRAKE hovers</div>
+                 <div class="tour-row"><b>NO UP</b>the castle has no gravity — loops and inverted flight are normal here</div>
+                 <div class="tour-row"><b>⛩ SETTINGS</b>top centre — quality (auto-tuned to this device), weather, mist, density, flight speed, new seeds</div>
+                 <div class="tour-row"><b>THE CASTLE</b>it rebuilds itself in waves — lanterns mark the inhabited rooms</div>`
+              : `<div class="tour-row"><b>FLY</b>move the mouse to steer · hold SPACE / W / click to surge · SHIFT to brake</div>
+                 <div class="tour-row"><b>AEROBATICS</b>Q / E roll · there is no up here — loop, dive, fly inverted · C changes camera</div>
+                 <div class="tour-row"><b>YOUR CURSOR</b>flying captures the mouse — press ESC to free it, click the castle to fly again</div>
+                 <div class="tour-row"><b>⛩ SETTINGS</b>top centre when the cursor is free — quality (auto-tuned to your machine), weather, mist, density, flight speed · H hides the HUD · R grows a new castle · M mutes</div>`
+          }
+          <button id="tour-go">BEGIN THE DESCENT</button>
+        </div>
+      </div>
+      <div id="cursor-hint">cursor freed — click the castle to fly · ⛩ settings above</div>
       <div id="settings">
         <h3>SETTINGS</h3>
         <div class="set-row"><label>quality</label>
@@ -127,14 +156,23 @@ export class UI {
     this.hint = document.getElementById('hint')!;
     this.flash = document.getElementById('beat-flash')!;
     this.settings = document.getElementById('settings')!;
+    // settings belong to the player — the gear is there from the menu onward
+    document.getElementById('gear')!.classList.add('on');
+    // portrait phones learn to rotate BEFORE they take wing, not after
+    if (IS_TOUCH) document.getElementById('rotate-hint')!.classList.add('armed');
 
     document.getElementById('start-btn')!.addEventListener('click', () => {
+      // every flight begins with the field guide — BEGIN is the real launch
       this.intro.classList.add('hidden');
-      this.hud.classList.add('on');
-      document.getElementById('gear')!.classList.add('on');
-      if (IS_TOUCH) document.getElementById('rotate-hint')!.classList.add('armed');
-      this.startHints();
-      o.onStart();
+      document.getElementById('tour')!.classList.add('open');
+    });
+    document.getElementById('tour-go')!.addEventListener('click', () => {
+      document.getElementById('tour')!.classList.remove('open');
+      if (!this.started) this.begin();
+    });
+    document.getElementById('s-tour')!.addEventListener('click', () => {
+      this.settings.classList.remove('open');
+      document.getElementById('tour')!.classList.add('open');
     });
 
     const gear = document.getElementById('gear')!;
