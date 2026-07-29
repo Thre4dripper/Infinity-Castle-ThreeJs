@@ -49,18 +49,18 @@ const P = (
 });
 
 export const WEATHER: Record<string, WeatherPreset> = {
-  // the default: warm dry air, the castle burning gold in the distance
-  clear: P('still air', 0.9, 0x4a2a16, 0xe0a355, 0x7a5030, 0.42, 0xffb070, 0x8a90c8, 0.35, 1.0),
-  // thick warm haze — hides the far field almost entirely
-  haze: P('warm haze', 1.3, 0x5a3418, 0xe8ac5c, 0x8a5b30, 0.95, 0xffa860, 0xd08040, 0.25, 1.3),
-  // mist pooling in the depths, cooler and heavier
-  mistfall: P('falling mist', 1.42, 0x3e3020, 0xcf9a60, 0x97877a, 1.3, 0xd8cbb8, 0x9aa4b8, 0.55, 1.5),
-  // sparks streaming upward off the lantern sea
-  emberstorm: P('ember storm', 1.05, 0x552a12, 0xf0aa50, 0x8a4c26, 0.6, 0xff8a2e, 0xffd08a, -0.9, 1.15),
-  // fine grey ash drifting down through the shafts
-  ashfall: P('ash fall', 1.18, 0x453325, 0xd49a5e, 0x7d6d60, 1.05, 0xbdb3a4, 0x8d8478, 0.75, 1.2),
-  // jade spirit mist — the accent, only in gardens and quiet places
-  spiritmist: P('spirit mist', 1.22, 0x2f4034, 0xd8a862, 0x5a8a6c, 1.15, 0x8fe0b0, 0xffc888, 0.2, 1.35),
+  // the default: warm DRY air — the castle burning gold, visibility for miles
+  clear: P('still air', 0.72, 0x4a2a16, 0xe0a355, 0x7a5030, 0.22, 0xffb070, 0x8a90c8, 0.35, 0.9),
+  // thick warm haze — the far field almost swallowed
+  haze: P('warm haze', 1.5, 0x5a3418, 0xe8ac5c, 0x8a5b30, 1.15, 0xffa860, 0xd08040, 0.2, 1.45),
+  // mist pooling in the depths, cooler and heavier — near-whiteout below
+  mistfall: P('falling mist', 1.65, 0x3e3020, 0xcf9a60, 0x97877a, 1.75, 0xd8cbb8, 0x9aa4b8, 0.65, 1.6),
+  // sparks RACING upward off the lantern sea
+  emberstorm: P('ember storm', 1.1, 0x552a12, 0xf5ae4a, 0x8a4c26, 0.5, 0xff8a2e, 0xffd08a, -1.6, 1.5),
+  // fine grey ash sifting down through the shafts, dimming everything
+  ashfall: P('ash fall', 1.45, 0x453325, 0xd49a5e, 0x7d6d60, 1.35, 0xbdb3a4, 0x8d8478, 1.1, 1.45),
+  // jade spirit mist — the accent, thick and otherworldly
+  spiritmist: P('spirit mist', 1.5, 0x2f4034, 0xd8a862, 0x4f9a6a, 1.6, 0x8fe0b0, 0xffc888, 0.12, 1.5),
 };
 
 /** Which weather belongs to which district, before the global cycle mixes in. */
