@@ -1,4 +1,4 @@
-import { hash3, rand3, mulberry32 } from '../core/rng';
+import { hash3, rand3, mulberry32, valueNoise3 } from '../core/rng';
 
 // ---------------------------------------------------------------------------
 // SPATIAL HIERARCHY
@@ -56,25 +56,25 @@ export interface DistrictDef {
 
 export const DISTRICTS: Record<DistrictType, DistrictDef> = {
   residential: {
-    type: 'residential', label: 'residential ward', fill: 0.66, openness: 0.52, flip: 0.14,
+    type: 'residential', label: 'residential ward', fill: 0.76, openness: 0.52, flip: 0.14,
     fogMul: 1.0, motion: 'none',
     pool: ['tatami-hall', 'plank-hall', 'balcony-ring', 'stair-shaft', 'corridor', 'pillar-forest'],
     landmarks: ['none', 'none', 'lanternChamber'],
   },
   labyrinth: {
-    type: 'labyrinth', label: 'lantern labyrinth', fill: 0.88, openness: 0.44, flip: 0.28,
+    type: 'labyrinth', label: 'lantern labyrinth', fill: 0.94, openness: 0.44, flip: 0.28,
     fogMul: 1.45, motion: 'none',
     pool: ['cell-room', 'cell-room', 'corridor', 'tatami-hall'],
     landmarks: ['none', 'none', 'endlessStair'],
   },
   canyon: {
-    type: 'canyon', label: 'corridor canyon', fill: 0.78, openness: 0.48, flip: 0.1,
+    type: 'canyon', label: 'corridor canyon', fill: 0.86, openness: 0.48, flip: 0.1,
     fogMul: 0.85, motion: 'none',
     pool: ['plank-hall', 'corridor', 'balcony-ring', 'tatami-hall', 'cell-room'],
     landmarks: ['none', 'colossalTorii', 'greatPillar'],
   },
   shaft: {
-    type: 'shaft', label: 'the great shaft', fill: 0.82, openness: 0.52, flip: 0.16,
+    type: 'shaft', label: 'the great shaft', fill: 0.88, openness: 0.52, flip: 0.16,
     fogMul: 0.8, motion: 'drift',
     pool: ['balcony-ring', 'stair-shaft', 'plank-hall', 'corridor', 'suspended'],
     landmarks: ['greatPillar', 'endlessStair', 'suspendedShrine'],
@@ -92,7 +92,7 @@ export const DISTRICTS: Record<DistrictType, DistrictDef> = {
     landmarks: ['lanternChamber', 'invertedPagoda', 'suspendedShrine'],
   },
   rotating: {
-    type: 'rotating', label: 'turning district', fill: 0.44, openness: 0.62, flip: 0.4,
+    type: 'rotating', label: 'turning district', fill: 0.56, openness: 0.62, flip: 0.4,
     fogMul: 0.8, motion: 'rotate',
     pool: ['tatami-hall', 'balcony-ring', 'void-lattice', 'bridge', 'pillar-forest'],
     landmarks: ['none', 'invertedPagoda', 'greatPillar'],
@@ -185,6 +185,13 @@ const DIST_SALT = 0x7b2e05;
 const OCC_SALT = 0x11ac4f;
 const FACE_SALT = 0x515c3;
 const LAND_SALT = 0x62d9a1;
+
+// NOTE: districts are NOT rigidly rotated. That was tried and reverted: the
+// streamer decides what to build/evict in grid space, so any district-level
+// rotation makes cells render away from their grid position — the streamer
+// then evicts geometry that is visibly in front of the player. "Impossible"
+// orientation comes from per-CELL flips (district.def.flip), which are baked
+// into vertices and therefore invisible to streaming and collision.
 
 function chapterAt(chx: number, chy: number, chz: number, seed: number): ChapterDef {
   // depth bias: each chapter is 288 m tall. Going down favours dark chapters.
@@ -310,7 +317,8 @@ function flightVoid(d: District, lx: number, ly: number, lz: number): boolean {
   if (t === 'void' || t === 'bridgeweb' || t === 'cathedralVoid' || t === 'temple') return false;
   const s = d.seed;
 
-  // two crossing highways at different levels → multi-level streets
+  // two crossing highways at different levels → multi-level streets.
+  // Kept to ONE cell wide: carving more than this guts the density.
   const alongZ = (s & 1) === 0;
   const hy1 = 1 + ((s >>> 1) % 4);
   const row1 = 1 + ((s >>> 3) % 4);
@@ -369,11 +377,182 @@ function shapeAllows(d: District, lx: number, ly: number, lz: number): boolean {
 }
 
 /** Final per-cell occupancy: shape mask × district fill × chapter density. */
-export function isOccupied(cx: number, cy: number, cz: number, seed: number): boolean {
+export function isOccupiedScatter(cx: number, cy: number, cz: number, seed: number): boolean {
   const d = districtAtCell(cx, cy, cz, seed);
   if (!shapeAllows(d, localCell(cx), localCell(cy), localCell(cz))) return false;
   const p = Math.min(0.97, d.def.fill * d.density);
   return rand3(cx, cy, cz, seed ^ OCC_SALT) < p;
+}
+
+// ---------------------------------------------------------------------------
+// BUILDING PLOTS
+// Dense districts are not filled cell-by-cell — that erodes buildings into
+// half-finished rubble. Instead the ground is divided into plots, each plot
+// decides ONCE whether it is built, how tall it stands and in what style, and
+// then every cell in that column belongs to a single complete building.
+// ---------------------------------------------------------------------------
+
+export type BuildingStyle =
+  | 'machiya'    // narrow latticed townhouse
+  | 'minka'      // steep-thatched farmhouse
+  | 'kura'       // white plaster storehouse
+  | 'yashiki'    // sprawling samurai mansion
+  | 'yagura'     // tapering watchtower
+  | 'chashitsu'  // small teahouse
+  | 'tenshu';    // tiered castle keep
+
+const STYLE_TABLE: Record<DistrictType, BuildingStyle[]> = {
+  residential: ['machiya', 'machiya', 'minka', 'yashiki', 'kura', 'chashitsu'],
+  labyrinth: ['machiya', 'machiya', 'kura', 'kura', 'minka'],
+  canyon: ['machiya', 'yagura', 'kura', 'yashiki', 'tenshu'],
+  shaft: ['yagura', 'yagura', 'kura', 'machiya', 'tenshu'],
+  rotating: ['yashiki', 'machiya', 'minka', 'yagura'],
+  temple: ['tenshu', 'yashiki', 'chashitsu'],
+  bridgeweb: ['yagura', 'kura'],
+  void: ['chashitsu', 'yagura'],
+  lanternOcean: ['machiya', 'chashitsu'],
+  hangingGarden: ['chashitsu', 'minka', 'yashiki'],
+  cathedralVoid: ['tenshu', 'yagura'],
+};
+
+export interface Plot {
+  built: boolean;
+  /** world cell Y where the building starts, and its height in cells */
+  y0: number;
+  h: number;
+  style: BuildingStyle;
+  /** plot anchor + footprint, in cells */
+  ax: number;
+  az: number;
+  w: number;
+  d: number;
+}
+
+const PLOT_SALT = 0x2b7f11;
+const plotCache = new Map<string, Plot>();
+let plotSeed = NaN;
+
+const UNBUILT: Plot = { built: false, y0: 0, h: 0, style: 'machiya', ax: 0, az: 0, w: 0, d: 0 };
+
+/**
+ * Which building owns this column, and what does it look like?
+ * Plots are 2 cells (24 m) square, and one in four merges into a 4-cell (48 m)
+ * mansion block, so footprints vary without ever leaving a building partial.
+ */
+export function plotAt(cx: number, cz: number, dyDistrict: number, seed: number): Plot {
+  if (seed !== plotSeed) {
+    plotCache.clear();
+    plotSeed = seed;
+  }
+  const px = Math.floor(cx / 2);
+  const pz = Math.floor(cz / 2);
+  const bx = Math.floor(px / 2);
+  const bz = Math.floor(pz / 2);
+
+  // one block in four is a single large mansion instead of four townhouses
+  const big = rand3(bx, dyDistrict, bz, seed ^ 0x51b3) < 0.26;
+  const ax = big ? bx * 4 : px * 2;
+  const az = big ? bz * 4 : pz * 2;
+  const w = big ? 4 : 2;
+
+  const key = ax + '_' + az + '_' + dyDistrict;
+  const hit = plotCache.get(key);
+  if (hit) return hit;
+
+  const d = districtAtCell(ax, dyDistrict * DCELLS + 1, az, seed);
+  const t = d.def.type;
+
+  // the plot must clear the district's carved voids across its whole footprint
+  let blocked = false;
+  for (let ix = 0; ix < w && !blocked; ix++) {
+    for (let iz = 0; iz < w && !blocked; iz++) {
+      const lx = localCell(ax + ix);
+      const lz = localCell(az + iz);
+      if (!shapeAllowsColumn(d, lx, lz)) blocked = true;
+    }
+  }
+
+  // density varies in drifting neighbourhoods rather than per-cell static
+  const cluster = valueNoise3(ax * 0.09, dyDistrict * 0.5, az * 0.09, seed ^ 0x77aa);
+  const chance = Math.min(0.99, d.def.fill * d.density * (0.8 + cluster * 0.8));
+  const roll = rand3(ax, dyDistrict, az, seed ^ PLOT_SALT);
+  const built = !blocked && roll < chance;
+
+  let plot: Plot = UNBUILT;
+  if (built) {
+    // buildings occupy a clear band shared by EVERY column of the footprint,
+    // so streets stay open and no building is ever sliced by a corridor
+    const band = freeBand(d, ax, az, w, dyDistrict, seed);
+    if (band) {
+      const styles = STYLE_TABLE[t];
+      const sIdx = hash3(ax, dyDistrict, az, seed ^ 0x9c17) % styles.length;
+      let style = styles[sIdx];
+      // tall styles only for tall bands, squat styles only for short ones
+      if (band.h >= 3 && (style === 'chashitsu')) style = 'yagura';
+      if (band.h <= 1 && (style === 'tenshu' || style === 'yagura')) style = 'machiya';
+      plot = { built: true, y0: band.y0, h: band.h, style, ax, az, w, d: w };
+    }
+  }
+  plotCache.set(key, plot);
+  if (plotCache.size > 8192) plotCache.clear();
+  return plot;
+}
+
+/** Does the district shape allow a building anywhere in this column? */
+function shapeAllowsColumn(d: District, lx: number, lz: number): boolean {
+  for (let ly = 0; ly < DCELLS; ly++) {
+    if (shapeAllows(d, lx, ly, lz)) return true;
+  }
+  return false;
+}
+
+/** The tallest run of cells clear in EVERY column of the plot's footprint. */
+function freeBand(
+  d: District, ax: number, az: number, w: number, dyDistrict: number, seed: number
+): { y0: number; h: number } | null {
+  const runs: { start: number; len: number }[] = [];
+  let start = -1;
+  for (let ly = 0; ly < DCELLS; ly++) {
+    let ok = true;
+    for (let ix = 0; ix < w && ok; ix++) {
+      for (let iz = 0; iz < w && ok; iz++) {
+        if (!shapeAllows(d, localCell(ax + ix), ly, localCell(az + iz))) ok = false;
+      }
+    }
+    if (ok && start < 0) start = ly;
+    if ((!ok || ly === DCELLS - 1) && start >= 0) {
+      const end = ok ? ly : ly - 1;
+      runs.push({ start, len: end - start + 1 });
+      start = -1;
+    }
+  }
+  if (runs.length === 0) return null;
+  const pick = runs[hash3(ax, dyDistrict, az, seed ^ 0x3311) % runs.length];
+  // most buildings fill their band; some are shorter, leaving skyline variety
+  const r = rand3(ax, dyDistrict + 7, az, seed ^ 0x6f2a);
+  const h = r < 0.55 ? pick.len : Math.max(1, Math.round(pick.len * (0.4 + r * 0.5)));
+  const base = dyDistrict * DCELLS + pick.start;
+  return { y0: base, h };
+}
+
+/** Coherent occupancy: a cell is built iff its building says so. */
+export function isOccupied(cx: number, cy: number, cz: number, seed: number): boolean {
+  const d = districtAtCell(cx, cy, cz, seed);
+  const t = d.def.type;
+  // sparse / sculptural districts keep the scattered look on purpose
+  if (t === 'bridgeweb' || t === 'void' || t === 'cathedralVoid' ||
+      t === 'lanternOcean' || t === 'hangingGarden' || t === 'temple') {
+    return isOccupiedScatter(cx, cy, cz, seed);
+  }
+  const plot = plotAt(cx, cz, Math.floor(cy / DCELLS), seed);
+  if (!plot.built) return false;
+  return cy >= plot.y0 && cy < plot.y0 + plot.h;
+}
+
+/** The style of the building this cell belongs to (for archetype selection). */
+export function styleAt(cx: number, cy: number, cz: number, seed: number): BuildingStyle | null {
+  const plot = plotAt(cx, cz, Math.floor(cy / DCELLS), seed);
+  return plot.built ? plot.style : null;
 }
 
 /**

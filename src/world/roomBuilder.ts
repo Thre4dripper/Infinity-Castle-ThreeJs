@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { hash3, rngFor } from '../core/rng';
 import { Kit, bakeShading, buildGlowPoints } from '../kit/geoUtils';
 import { opaqueMat, emissiveMat, glowMat, bindAssembly, C } from '../kit/materials';
-import { pickArchetype, buildRoofCap, Open } from './archetypes';
+import { pickArchetype, buildRoofCap, setActiveStyle, Open } from './archetypes';
 import { floorPlanks, railing, lanternHang, lanternString, wallLattice, stairs } from '../kit/parts';
 import {
-  CELL, District, districtAtCell, isOccupied, faceOpen, connectorAt, isRoofCell, isBaseCell,
+  CELL, District, districtAtCell, isOccupied, faceOpen, connectorAt, isRoofCell, isBaseCell, styleAt,
 } from './districts';
 
 export { CELL } from './districts';
@@ -175,6 +175,8 @@ export function buildCell(
 
   const k = new Kit(rng);
   let archetypeName = 'connector';
+  // every cell of a building shares one architectural identity
+  setActiveStyle(occupied ? styleAt(cx, cy, cz, seed) : null);
 
   if (occupied) {
     // world-face openness → local-face openness through the inverse rotation
