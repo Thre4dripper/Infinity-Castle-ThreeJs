@@ -4,7 +4,7 @@ import { Quality, TierSettings } from './core/quality';
 import { mulberry32, randomSeed, seedFromString } from './core/rng';
 import { glowUniforms, fxUniforms } from './kit/materials';
 import { World } from './world/streamer';
-import { CELL, districtAtCell, isOccupied } from './world/districts';
+import { CELL, districtAtCell, isOccupied, setDensityScale } from './world/districts';
 import { farUniforms } from './world/farfield';
 import { Choreographer } from './world/motion';
 import { Crow } from './player/crow';
@@ -62,6 +62,8 @@ function game(): void {
   let started = false;
   let ghost = false;
   let stuckTimer = 0;
+  let mistScale = 1;
+  let moteScaleApplied = 1;
   const escapeVec = new THREE.Vector3();
   const worldOccupied = (x: number, y: number, z: number, s: number) => isOccupied(x, y, z, s);
 
@@ -80,9 +82,26 @@ function game(): void {
     onInvertY: (b) => (input.invertY = b),
     onGhost: (b) => (ghost = b),
     onMute: (b) => audio.setMuted(b),
+    onWeather: (w) => (weather.override = w),
+    onPace: (v) => (flight.speedScale = v),
+    onMist: (v) => {
+      mistScale = v;
+      // more air means more of everything airborne — reallocate the mote
+      // field only when the dial has moved meaningfully
+      const target = 0.5 + 0.75 * v;
+      if (Math.abs(target - moteScaleApplied) > 0.2) {
+        moteScaleApplied = target;
+        motes.setCount(Math.round(quality.settings.motes * target));
+      }
+    },
+    onDensity: (v) => {
+      setDensityScale(v);
+      reseed(seedStr); // regrow the same castle at the new density
+    },
   });
 
   const input = new Input(engine.renderer.domElement);
+  input.onLock = (locked) => ui.setCursorFree(!locked);
   input.onKey = (code) => {
     if (!started) return;
     switch (code) {
@@ -123,7 +142,7 @@ function game(): void {
     world.buildBudgetMs = s.buildBudgetMs;
     world.landmarkRadiusD = s.radiusCells * 0.62;
     world.farRadiusD = s.radiusCells * 0.9;
-    motes.setCount(s.motes);
+    motes.setCount(Math.round(s.motes * moteScaleApplied));
     mist.setLayers(s.mistLayers);
     post.setEnabled(s.bloom);
     // fog is thin enough to see landmarks and far-field districts loom
@@ -208,10 +227,15 @@ function game(): void {
     weather.update(dt, t, here.def.type, here.seed & 7);
     fxUniforms.uFogColor.value.copy(weather.fog);
     fxUniforms.uFogGlow.value.copy(weather.glow);
-    motes.setWeather(weather.moteA, weather.moteB, weather.moteFall, weather.moteSize);
-    mist.update(t, engine.camera.position, weather.mist, weather.mistDensity);
+    motes.setWeather(weather.moteA, weather.moteB, weather.moteFall,
+      weather.moteSize * (0.7 + 0.45 * mistScale));
+    // the mist dial is EXTREME by design: quadratic response, and it drags
+    // the whole atmosphere (fog) with it — 0 is crystal air, max is a whiteout
+    const mistMul = Math.pow(mistScale, 2.2);
+    mist.update(t, engine.camera.position, weather.mist, weather.mistDensity * mistMul);
 
-    const targetFog = baseFog * here.def.fogMul * weather.fogMul;
+    const fogUser = 0.65 + 0.35 * mistScale;
+    const targetFog = baseFog * here.def.fogMul * weather.fogMul * fogUser;
     engine.fog.density += (targetFog - engine.fog.density) * Math.min(dt * 0.6, 1);
     glowUniforms.uFog.value = engine.fog.density;
     fxUniforms.uFogDensity.value = engine.fog.density;
@@ -259,5 +283,5 @@ function game(): void {
   engine.start();
 
   // debug handle for dev tooling
-  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality };
+  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality, input, weather };
 }

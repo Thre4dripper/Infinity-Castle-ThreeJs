@@ -94,6 +94,8 @@ export class Weather {
   moteFall = 0.35;
   moteSize = 1;
   label = 'still air';
+  /** user override from settings — null lets the castle choose */
+  override: string | null = null;
 
   private target: WeatherPreset = WEATHER.clear;
   private cycle = 0;
@@ -120,15 +122,16 @@ export class Weather {
     // the global cycle drifts every ~90s so weather is never static
     this.cycle = Math.floor(t / 90) + chapterHash;
     const pool = BY_DISTRICT[district] ?? ['clear'];
-    const pick = pool[Math.abs(this.cycle) % pool.length];
+    const pick = this.override ?? pool[Math.abs(this.cycle) % pool.length];
     const next = WEATHER[pick] ?? WEATHER.clear;
     if (next !== this.target) {
       this.target = next;
       this.label = next.name;
     }
 
-    // slow crossfade — weather should change like weather, not like a switch
-    const k = 1 - Math.exp(-dt * 0.22);
+    // slow crossfade in ambient mode — but when the USER picks a weather it
+    // must land fast enough to feel like their hand on the sky
+    const k = 1 - Math.exp(-dt * (this.override ? 1.1 : 0.22));
     this.fog.lerp(this.target.fog, k);
     this.glow.lerp(this.target.glow, k);
     this.mist.lerp(this.target.mist, k);

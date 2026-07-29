@@ -27,6 +27,8 @@ export class Flight {
 
   flapping = false;
   braking = false;
+  /** user pace dial from settings (0.5–2) */
+  speedScale = 1;
   private smYawRate = 0;
   private flapTimer = 0;
   /** fires on each wing-stroke while flapping (audio hook) */
@@ -73,7 +75,7 @@ export class Flight {
     this.flapping = input.flap;
     this.braking = input.brake;
 
-    const targetSpeed = this.braking ? 5.5 : this.flapping ? 26 : 14.5;
+    const targetSpeed = (this.braking ? 5.5 : this.flapping ? 26 : 14.5) * this.speedScale;
     const resp = this.braking ? 3.4 : this.flapping ? 2.4 : 2.0;
     this.forward(_fwd);
     _target.copy(_fwd).multiplyScalar(targetSpeed);
