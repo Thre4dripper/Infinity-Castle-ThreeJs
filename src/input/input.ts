@@ -209,9 +209,12 @@ export class Input {
           stickId = t.identifier;
           sx = t.clientX;
           sy = t.clientY;
+          // the base is a child of the zone — convert from viewport coords or
+          // the ring appears offset from the thumb
+          const zr = zone.getBoundingClientRect();
           base.style.display = 'block';
-          base.style.left = sx + 'px';
-          base.style.top = sy + 'px';
+          base.style.left = sx - zr.left + 'px';
+          base.style.top = sy - zr.top + 'px';
           updateStick(t);
         }
       }

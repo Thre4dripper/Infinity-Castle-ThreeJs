@@ -160,7 +160,8 @@
     #touch-ui { position: absolute; inset: 0; display: none; }
     #touch-ui.on { display: block; }
     #stick-zone {
-      position: absolute; left: 0; bottom: 0; width: 44%; height: 62%;
+      /* the whole left half is the stick's home — it spawns under the thumb */
+      position: absolute; left: 0; top: 56px; bottom: 0; width: 50%;
     }
     #stick-base {
       position: absolute; width: 110px; height: 110px; border-radius: 50%;
