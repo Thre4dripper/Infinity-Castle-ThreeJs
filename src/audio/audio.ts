@@ -464,4 +464,16 @@ export class AudioEngine {
       this.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.1);
     }
   }
+
+  /** Pause menu: freeze ALL sound — the theme, the wind, the carpentry. */
+  setPaused(p: boolean): void {
+    if (!this.ctx) return;
+    if (p) {
+      this.musicEl?.pause();
+      void this.ctx.suspend();
+    } else {
+      void this.ctx.resume();
+      void this.musicEl?.play().catch(() => { /* still blocked */ });
+    }
+  }
 }

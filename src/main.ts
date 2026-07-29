@@ -179,10 +179,8 @@ function game(): void {
     },
     onPause: (p) => {
       paused = p;
+      audio.setPaused(p);
       if (p) {
-        // freeze the air with the world
-        audio.wind(0);
-        audio.construction(0);
         if (document.pointerLockElement) document.exitPointerLock();
       } else if (started) {
         input.requestLock();
