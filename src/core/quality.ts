@@ -20,6 +20,37 @@ export const TIERS: TierSettings[] = [
 ];
 
 /**
+ * One-time probe of the machine before the first frame. The runtime monitor
+ * still walks tiers adaptively — this only picks a starting point so weak
+ * machines don't stutter through their first seconds at 'high'.
+ */
+export function detectTier(): number {
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const mem = nav.deviceMemory ?? 8;
+  const cores = navigator.hardwareConcurrency ?? 8;
+  if (IS_TOUCH) {
+    return mem >= 6 && cores >= 6 ? 2 : mem >= 3 ? 1 : 0;
+  }
+  let gpu = '';
+  try {
+    const c = document.createElement('canvas');
+    const gl = (c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext | null;
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    if (gl && ext) {
+      gpu = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)).toLowerCase();
+    }
+  } catch {
+    /* probing is best-effort */
+  }
+  // strong discrete / apple-silicon parts go straight to ultra
+  if (/apple m\d|rtx|geforce gtx 1[6-9]|geforce gtx [2-9]|radeon rx|arc a/.test(gpu)) return 3;
+  // known-weak integrated parts start low
+  if (/intel.*(hd graphics|uhd graphics)|mali|adreno [1-5]|geforce (mx|8|9)\d0/.test(gpu)) return 1;
+  if (mem <= 4 || cores <= 4) return 1;
+  return 2; // unknown hardware: high, and the auto monitor takes it from there
+}
+
+/**
  * Rolling frame-time monitor. In auto mode it walks the tier up/down with
  * hysteresis so it settles instead of oscillating.
  */
@@ -34,7 +65,7 @@ export class Quality {
   private listeners: ((t: TierSettings, index: number) => void)[] = [];
 
   constructor() {
-    this.tier = IS_TOUCH ? 1 : 2;
+    this.tier = detectTier();
   }
 
   get settings(): TierSettings {
