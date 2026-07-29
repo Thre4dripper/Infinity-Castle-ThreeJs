@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getArtAtlas, ART_TILES } from './artAtlas';
 
 
 // ---------------------------------------------------------------------------
@@ -105,18 +106,28 @@ export const opaqueMat = new THREE.ShaderMaterial({
     ...lightUniforms,
     uT0: { value: -1e9 },
     uT1: { value: 1e9 },
+    uArt: { value: getArtAtlas() },
+    uArtTiles: { value: ART_TILES },
   },
   vertexShader: /* glsl */ `
     ${BUILD_CHUNK}
     attribute vec3 color;
+    attribute float aArt;
     varying vec3 vColor;
     varying vec3 vNormalW;
+    varying vec3 vWorld;
     varying float vDist;
+    varying vec2 vUv;
+    varying float vArt;
     void main() {
       vColor = color;
+      vArt = aArt;
+      vUv = uv;
       vec3 p = assemble(position);
       vNormalW = normalize(mat3(modelMatrix) * normal);
-      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      vec4 world = modelMatrix * vec4(p, 1.0);
+      vWorld = world.xyz;
+      vec4 mv = viewMatrix * world;
       vDist = length(mv.xyz);
       gl_Position = projectionMatrix * mv;
     }

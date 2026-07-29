@@ -124,7 +124,7 @@ export class Kit {
    * place in the assembly order. Buildings then write themselves into
    * existence from the ground up instead of popping in whole.
    */
-  private tagAssembly(g: THREE.BufferGeometry): void {
+  private tagAssembly(g: THREE.BufferGeometry, artTile = -1): void {
     g.computeBoundingBox();
     const b = g.boundingBox!;
     const ccx = (b.min.x + b.max.x) * 0.5;
@@ -136,14 +136,47 @@ export class Kit {
     const n = g.getAttribute('position').count;
     const cent = new Float32Array(n * 3);
     const build = new Float32Array(n);
+    const art = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       cent[i * 3] = ccx;
       cent[i * 3 + 1] = ccy;
       cent[i * 3 + 2] = ccz;
       build[i] = order;
+      art[i] = artTile;
     }
     g.setAttribute('aCent', new THREE.BufferAttribute(cent, 3));
     g.setAttribute('aBuild', new THREE.BufferAttribute(build, 1));
+    g.setAttribute('aArt', new THREE.BufferAttribute(art, 1));
+    // every geometry must expose uv so merging stays consistent
+    if (!g.getAttribute('uv')) {
+      g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+    }
+  }
+
+  /**
+   * A painted panel: fusuma, byōbu screen, shrine board. Samples a motif from
+   * the shared art atlas, so it costs no extra draw call. Painted on both
+   * faces by default — a sliding panel is seen from either side.
+   */
+  art(
+    w: number, h: number, cx: number, cy: number, cz: number,
+    tile: number, o: BoxOpts & { single?: boolean } = {}
+  ): void {
+    const faces = o.single ? [0] : [0, Math.PI];
+    for (const extra of faces) {
+      const g = new THREE.PlaneGeometry(w, h);
+      _m1.identity();
+      _m1.makeRotationFromEuler(_e.set(o.rx ?? 0, (o.ry ?? 0) + extra, o.rz ?? 0));
+      _m1.setPosition(cx, cy, cz);
+      if (this.fq !== 0 || this.fx !== 0 || this.fy !== 0 || this.fz !== 0) {
+        _m2.makeRotationY((this.fq * Math.PI) / 2).setPosition(this.fx, this.fy, this.fz);
+        _m1.premultiply(_m2);
+      }
+      g.applyMatrix4(_m1);
+      paint(g, 0xffffff);
+      this.tagAssembly(g, tile);
+      this.opaque.push(g);
+    }
   }
 
   /** Explicit AABB collider in frame coordinates. */
