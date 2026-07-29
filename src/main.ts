@@ -196,7 +196,7 @@ function game(): void {
       }
 
       flight.applyTo(crow.root);
-      crow.update(dt, flight.speed, input.flap, input.brake);
+      crow.update(dt, flight.speed, input.flap, input.brake, engine.camera.position, t);
       rig.update(dt, engine.camera, flight, (p, r) => {
         collideSphere(world, p, null, r);
       });

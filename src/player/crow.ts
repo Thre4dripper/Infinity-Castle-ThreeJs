@@ -1,5 +1,58 @@
 import * as THREE from 'three';
-import { crowMat } from '../kit/materials';
+import { crowMat, fxUniforms } from '../kit/materials';
+
+// ---------------------------------------------------------------------------
+// WING WASH — a soft sheet of blurred air riding the wingspan. Streaks of
+// displaced air slip backwards across it, faster and brighter with airspeed,
+// flaring on every downstroke. One quad, pure shader.
+// ---------------------------------------------------------------------------
+function makeWash(): {
+  mesh: THREE.Mesh;
+  u: { uTime: { value: number }; uStrength: { value: number }; uSpeed: { value: number } };
+} {
+  const u = { uTime: { value: 0 }, uStrength: { value: 0 }, uSpeed: { value: 0 } };
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { ...u, uEncode: fxUniforms.uEncode },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */ `
+      varying vec2 vP;
+      void main() {
+        vP = position.xy;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec2 vP;
+      uniform float uTime;
+      uniform float uStrength;
+      uniform float uSpeed;
+      uniform float uEncode;
+      void main() {
+        // elliptical falloff around the wingspan
+        float r = length(vP * vec2(0.85, 2.6));
+        float body = smoothstep(1.0, 0.15, r);
+        // air streaks flowing backwards over the wings — the "blur".
+        // they race as the crow accelerates
+        float v = mix(10.0, 42.0, uSpeed);
+        float s1 = sin(vP.x * 34.0 + uTime * v) * sin(vP.x * 13.0 - uTime * v * 0.7);
+        float s2 = sin((vP.x + vP.y) * 21.0 - uTime * v * 1.15);
+        float streaks = 0.55 + 0.45 * (0.5 * s1 + 0.5 * s2);
+        float a = body * streaks * uStrength * 0.5;
+        vec3 col = vec3(0.72, 0.82, 1.08) * a;
+        if (uEncode < 0.5) col = pow(col, vec3(2.2));
+        gl_FragColor = vec4(col, a);
+      }
+    `,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.0), mat);
+  mesh.position.set(0, 0.04, 0.22);
+  mesh.renderOrder = 6;
+  mesh.frustumCulled = false;
+  return { mesh, u };
+}
 
 function geoBox(w: number, h: number, d: number, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d);
@@ -53,6 +106,8 @@ export class Crow {
   private elbowL = new THREE.Group();
   private elbowR = new THREE.Group();
   private tail = new THREE.Group();
+  private wash = makeWash();
+  private gust = 0;
   private flapPhase = 0;
   private flareT = 0;
 
@@ -123,13 +178,15 @@ export class Crow {
 
     this.meshRoot.scale.setScalar(0.85);
     this.root.add(this.meshRoot);
+    this.meshRoot.add(this.wash.mesh);
   }
 
   setVisible(v: boolean): void {
     this.meshRoot.visible = v;
   }
 
-  update(dt: number, speed: number, flapping: boolean, braking: boolean): void {
+  update(dt: number, speed: number, flapping: boolean, braking: boolean,
+    _camPos?: THREE.Vector3, t = 0): void {
     const freq = flapping ? 3.1 : braking ? 2.2 : 0.9;
     const targetAmp = flapping ? 0.92 : braking ? 0.55 : 0.1 + Math.min(speed * 0.004, 0.08);
     this.flapPhase += dt * freq * Math.PI * 2;
@@ -150,5 +207,19 @@ export class Crow {
 
     // subtle body bob while flapping
     this.meshRoot.position.y = flapping ? Math.sin(this.flapPhase) * 0.03 : 0;
+
+    // ---- wing wash: the air made visible ----
+    if (this.meshRoot.visible) {
+      // present from an ordinary glide, racing and flaring in a surge;
+      // every downstroke sheds an extra puff
+      const stroke = flapping ? Math.max(0, -Math.cos(this.flapPhase)) : 0;
+      this.gust += (stroke * 0.7 - this.gust) * Math.min(dt * 7, 1);
+      const cruise = THREE.MathUtils.smoothstep(speed, 5, 25);
+      this.wash.u.uTime.value = t;
+      this.wash.u.uSpeed.value = cruise;
+      this.wash.u.uStrength.value = 0.35 + cruise * 0.6 + this.gust * 0.45;
+      const spread = 1 + this.gust * 0.2 + cruise * 0.18;
+      this.wash.mesh.scale.set(spread, 1 + cruise * 0.3, 1);
+    }
   }
 }
