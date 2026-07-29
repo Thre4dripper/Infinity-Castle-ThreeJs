@@ -17,9 +17,16 @@ export class Post {
     this.engine = engine;
     this.baseRender = engine.renderFn;
     this.composer = new EffectComposer(engine.renderer);
+    // a custom target starts at CSS-pixel size — bring it to the canvas's
+    // real resolution immediately, not just on the next window resize
+    this.composer.setPixelRatio(engine.renderer.getPixelRatio());
+    this.composer.setSize(window.innerWidth, window.innerHeight);
     this.composer.addPass(new RenderPass(engine.scene, engine.camera));
+    // bloom is low-frequency by nature: running its blur chain at HALF
+    // resolution is visually identical and 4× cheaper — the difference
+    // between silk and slideshow on 4K/retina screens
     const bloom = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      new THREE.Vector2(Math.ceil(window.innerWidth / 2), Math.ceil(window.innerHeight / 2)),
       0.5, // strength
       0.5, // radius
       0.6 // threshold
