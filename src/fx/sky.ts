@@ -147,6 +147,10 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false;
+  // the sky's 5-shell shader is the most expensive fragment work in the game;
+  // drawing it AFTER the opaque castle lets early-Z discard every pixel that
+  // architecture already covers — in dense wards that's most of the screen
+  mesh.renderOrder = 1;
   mesh.renderOrder = -10;
   return { mesh, uniforms };
 }
