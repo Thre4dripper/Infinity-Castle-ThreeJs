@@ -60,10 +60,11 @@ function game(): void {
   flight.setLook(spawn.yaw, 0);
 
   let started = false;
-  let ghost = false;
+  let paused = false;
+  let ghost = state.ghost;
   let stuckTimer = 0;
-  let mistScale = 1;
-  let moteScaleApplied = 1;
+  let mistScale = state.mist / 100;
+  let moteScaleApplied = 0.5 + 0.75 * mistScale;
   let lastBuilt = 0;
   let buildRate = 0;
   const escapeVec = new THREE.Vector3();
@@ -100,16 +101,49 @@ function game(): void {
         motes.setCount(Math.round(quality.settings.motes * target));
       }
     },
-    onMusicVol: (v) => audio.setMusicVolume(v),
-    onSfxVol: (v) => audio.setSfxVolume(v),
+    onLight: (v) => {
+      state.light = Math.round(v * 100);
+      syncUrl();
+      engine.renderer.toneMappingExposure = 1.55 * v;
+    },
+    onMusicVol: (v) => {
+      state.music = Math.round(v * 100);
+      syncUrl();
+      audio.setMusicVolume(v);
+    },
+    onSfxVol: (v) => {
+      state.sfx = Math.round(v * 100);
+      syncUrl();
+      audio.setSfxVolume(v);
+    },
     onDensity: (v) => {
+      state.density = Math.round(v * 100);
+      syncUrl();
       setDensityScale(v);
       reseed(seedStr); // regrow the same castle at the new density
+    },
+    onPause: (p) => {
+      paused = p;
+      if (p) {
+        // freeze the air with the world
+        audio.wind(0);
+        audio.construction(0);
+        if (document.pointerLockElement) document.exitPointerLock();
+      } else if (started) {
+        input.requestLock();
+      }
+    },
+    onQuit: () => {
+      // the URL carries every setting — reload lands on the homepage intact
+      location.reload();
     },
   });
 
   const input = new Input(engine.renderer.domElement);
-  input.onLock = (locked) => ui.setCursorFree(!locked);
+  // losing pointer lock mid-flight (ESC) IS the pause gesture
+  input.onLock = (locked) => {
+    if (!locked && started && !paused) ui.openPause();
+  };
   input.onKey = (code) => {
     if (!started) return;
     switch (code) {
@@ -173,6 +207,9 @@ function game(): void {
   const menuFocus = spawn.pos.clone();
 
   engine.onFrame((dt, t) => {
+    // paused: time stands still — the frozen frame keeps rendering, the
+    // theme keeps playing, but nothing in the castle moves
+    if (paused) return;
     quality.update(dt);
 
     if (started) {

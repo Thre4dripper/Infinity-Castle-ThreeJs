@@ -13,8 +13,11 @@ export interface UIOptions {
   onPace: (v: number) => void;
   onMist: (v: number) => void;
   onDensity: (v: number) => void;
+  onLight: (v: number) => void;
   onMusicVol: (v: number) => void;
   onSfxVol: (v: number) => void;
+  onPause: (paused: boolean) => void;
+  onQuit: () => void;
 }
 
 export interface HudData {
@@ -50,6 +53,7 @@ export class UI {
   private hintIdx = 0;
   private hintTimer: number | null = null;
   private started = false;
+  private pauseOpenedAt = 0;
 
   /** Everything that actually starts the game — shared by intro and tour. */
   private begin(): void {
@@ -118,38 +122,52 @@ export class UI {
       </div>
       <div id="cursor-hint">cursor freed — click the castle to fly · ⛩ settings above</div>
       <div id="settings">
-        <h3>SETTINGS</h3>
-        <div class="set-row"><label>quality</label>
-          <select id="s-quality">
-            <option value="auto" selected>auto</option>
-            <option value="0">ember</option>
-            <option value="1">low</option>
-            <option value="2">high</option>
-            <option value="3">ultra</option>
-          </select>
+        <div id="pause-card">
+          <div class="pause-side">設定</div>
+          <div class="pause-body">
+            <h3><span>⛩</span> THE CASTLE WAITS</h3>
+            <div class="set-grp">飛行 · flight</div>
+            <div class="set-row"><label>flight speed</label><input id="s-pace" type="range" min="20" max="180" value="${ini.pace}"/></div>
+            <div class="set-row"><label>invert Y</label><input id="s-invert" type="checkbox" ${ini.inv ? 'checked' : ''}/></div>
+            <div class="set-row"><label>ghost (no collision)</label><input id="s-ghost" type="checkbox" ${ini.ghost ? 'checked' : ''}/></div>
+            <div class="set-grp">天候 · atmosphere</div>
+            <div class="set-row"><label>weather</label>
+              <select id="s-weather">
+                <option value="auto">let the castle choose</option>
+                <option value="clear">still air</option>
+                <option value="haze">warm haze</option>
+                <option value="mistfall">mist fall</option>
+                <option value="emberstorm">ember storm</option>
+                <option value="ashfall">ash fall</option>
+                <option value="spiritmist">spirit mist</option>
+              </select>
+            </div>
+            <div class="set-row"><label>mist amount</label><input id="s-mist" type="range" min="0" max="200" value="${ini.mist}"/></div>
+            <div class="set-row"><label>illumination</label><input id="s-light" type="range" min="60" max="160" value="${ini.light}"/></div>
+            <div class="set-grp">城 · the castle</div>
+            <div class="set-row"><label>castle motion</label><input id="s-motion" type="range" min="0" max="200" value="${ini.motion}"/></div>
+            <div class="set-row"><label>density (rebuilds)</label><input id="s-density" type="range" min="40" max="160" value="${ini.density}"/></div>
+            <div class="set-row"><label>quality</label>
+              <select id="s-quality">
+                <option value="auto">auto</option>
+                <option value="0">ember</option>
+                <option value="1">low</option>
+                <option value="2">high</option>
+                <option value="3">ultra</option>
+              </select>
+            </div>
+            <div class="set-row"><label>seed</label><input id="s-seed" type="text" value="${this.esc(ini.seed)}"/></div>
+            <div class="set-row set-btns"><button class="set-btn" id="s-apply">REBUILD</button><button class="set-btn" id="s-random">RANDOM</button><button class="set-btn" id="s-tour">TOUR</button></div>
+            <div class="set-grp">音 · sound</div>
+            <div class="set-row"><label>music volume</label><input id="s-music" type="range" min="0" max="100" value="${ini.music}"/></div>
+            <div class="set-row"><label>sfx volume</label><input id="s-sfx" type="range" min="0" max="100" value="${ini.sfx}"/></div>
+            <div class="set-row"><label>mute</label><input id="s-mute" type="checkbox"/></div>
+            <div class="pause-actions">
+              <button id="p-resume">↩ RESUME THE DESCENT</button>
+              <button id="p-quit">鳥居 QUIT TO GATE</button>
+            </div>
+          </div>
         </div>
-        <div class="set-row"><label>castle motion</label><input id="s-motion" type="range" min="0" max="200" value="100"/></div>
-        <div class="set-row"><label>flight speed</label><input id="s-pace" type="range" min="20" max="180" value="100"/></div>
-        <div class="set-row"><label>weather</label>
-          <select id="s-weather">
-            <option value="auto" selected>let the castle choose</option>
-            <option value="clear">still air</option>
-            <option value="haze">warm haze</option>
-            <option value="mistfall">mist fall</option>
-            <option value="emberstorm">ember storm</option>
-            <option value="ashfall">ash fall</option>
-            <option value="spiritmist">spirit mist</option>
-          </select>
-        </div>
-        <div class="set-row"><label>mist amount</label><input id="s-mist" type="range" min="0" max="200" value="100"/></div>
-        <div class="set-row"><label>density (rebuilds)</label><input id="s-density" type="range" min="40" max="160" value="100"/></div>
-        <div class="set-row"><label>music volume</label><input id="s-music" type="range" min="0" max="100" value="65"/></div>
-        <div class="set-row"><label>sfx volume</label><input id="s-sfx" type="range" min="0" max="100" value="90"/></div>
-        <div class="set-row"><label>invert Y</label><input id="s-invert" type="checkbox"/></div>
-        <div class="set-row"><label>ghost (no collision)</label><input id="s-ghost" type="checkbox"/></div>
-        <div class="set-row"><label>mute</label><input id="s-mute" type="checkbox"/></div>
-        <div class="set-row"><label>seed</label><input id="s-seed" type="text" value="${this.esc(o.seed)}"/></div>
-        <div class="set-row"><button class="set-btn" id="s-apply">REBUILD</button><button class="set-btn" id="s-random">RANDOM</button><button class="set-btn" id="s-tour">TOUR</button></div>
       </div>
     `;
 
@@ -180,11 +198,20 @@ export class UI {
     });
 
     const gear = document.getElementById('gear')!;
-    gear.addEventListener('click', () => {
-      this.settings.classList.toggle('open');
-      if (this.settings.classList.contains('open') && document.pointerLockElement) {
-        document.exitPointerLock();
+    gear.addEventListener('click', () => this.openPause());
+    document.getElementById('p-resume')!.addEventListener('click', () => this.closePause());
+    document.getElementById('p-quit')!.addEventListener('click', () => o.onQuit());
+    // ESC while the menu is open resumes — but the SAME keystroke that
+    // released pointer lock (and thereby opened the menu) must not close it
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape' && this.settings.classList.contains('open')
+        && performance.now() - this.pauseOpenedAt > 400) {
+        this.closePause();
       }
+    });
+
+    (document.getElementById('s-light') as HTMLInputElement).addEventListener('input', (e) => {
+      o.onLight(Number((e.target as HTMLInputElement).value) / 100);
     });
 
     (document.getElementById('s-quality') as HTMLSelectElement).addEventListener('change', (e) => {
@@ -225,13 +252,13 @@ export class UI {
     });
     document.getElementById('s-apply')!.addEventListener('click', () => {
       o.onSeed((document.getElementById('s-seed') as HTMLInputElement).value);
-      this.settings.classList.remove('open');
+      this.closePause();
     });
     document.getElementById('s-random')!.addEventListener('click', () => {
       const s = String((Math.random() * 0xffffffff) >>> 0);
       (document.getElementById('s-seed') as HTMLInputElement).value = s;
       o.onSeed(s);
-      this.settings.classList.remove('open');
+      this.closePause();
     });
   }
 
@@ -247,13 +274,22 @@ export class UI {
     (document.getElementById('s-mute') as HTMLInputElement).checked = m;
   }
 
-  /** Show/hide the "cursor freed" banner when pointer lock changes. */
-  setCursorFree(free: boolean): void {
-    if (!this.started) return;
-    document.getElementById('cursor-hint')!.classList.toggle('show', free);
-    // once the mouse is captured the panel is unreachable — fold it away
-    if (!free) this.settings.classList.remove('open');
+  /** ESC / gear — freeze the castle and open the shrine menu. */
+  openPause(): void {
+    if (this.settings.classList.contains('open')) return;
+    this.pauseOpenedAt = performance.now();
+    this.settings.classList.add('open');
+    this.o.onPause(true);
   }
+
+  closePause(): void {
+    if (!this.settings.classList.contains('open')) return;
+    this.settings.classList.remove('open');
+    this.o.onPause(false);
+  }
+
+  /** Legacy hook — pause handles cursor state now. */
+  setCursorFree(_free: boolean): void { /* superseded by the pause menu */ }
 
   private startHints(): void {
     const show = () => {
