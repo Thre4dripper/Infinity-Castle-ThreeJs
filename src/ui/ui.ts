@@ -213,7 +213,8 @@ export class UI {
       if (!this.started) this.begin();
     });
     document.getElementById('s-tour')!.addEventListener('click', () => {
-      this.settings.classList.remove('open');
+      // the tour stacks ON TOP of the pause menu — closing it drops you back
+      // into the paused shrine, never into a frozen world with no menu
       document.getElementById('tour')!.classList.add('open');
     });
 
