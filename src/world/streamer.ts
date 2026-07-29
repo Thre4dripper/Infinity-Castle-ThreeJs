@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildCell, cellKey, CellData } from './roomBuilder';
 import { buildLandmark, LandmarkData } from './landmarks';
 import { buildFarDistrict, farMat } from './farfield';
+import { fxUniforms } from '../kit/materials';
 import {
   CELL, DCELLS, DSIZE, District, districtAtCoords, districtKey, isOccupied, landmarkOf,
 } from './districts';
@@ -69,8 +70,12 @@ export class World {
   private center: [number, number, number] = [NaN, 0, 0];
   private centerD: [number, number, number] = [NaN, 0, 0];
   private queue: [number, number, number][] = [];
+  /** where the crow is heading — cells ahead are built first */
+  readonly heading = new THREE.Vector3(0, 0, -1);
   /** cells mid-dissolve: kept alive until their unbuild animation finishes */
   private dying: { cell: CellData; node: DistrictNode; until: number }[] = [];
+  /** far proxies mid-retract: removed once their blocks have receded */
+  private dyingFar: { mesh: THREE.Mesh; node: DistrictNode; until: number }[] = [];
 
   constructor(seed: number) {
     this.seed = seed;
@@ -138,6 +143,9 @@ export class World {
         const n = this.nodeFor(built.district);
         n.cells.set(key, built);
         n.group.add(built.root);
+        // the moment real architecture starts growing in a district, its far
+        // proxy hands over — dissolving into the haze as the buildings rise
+        if (n.far) this.retractFar(n);
         this.cellsBuilt++;
         this.cellCount++;
       }
@@ -153,11 +161,21 @@ export class World {
         this.cellCount--;
       }
     }
+    // retire far proxies whose retraction has finished
+    for (let i = this.dyingFar.length - 1; i >= 0; i--) {
+      if (timeNow >= this.dyingFar[i].until) {
+        const { mesh, node } = this.dyingFar[i];
+        node.group.remove(mesh);
+        mesh.geometry.dispose();
+        this.dyingFar.splice(i, 1);
+      }
+    }
   }
 
   private recenterCells(): void {
     const [cx, cy, cz] = this.center;
     this.queue.length = 0;
+    const scored: { c: [number, number, number]; s: number }[] = [];
     for (const o of CELL_OFFSETS) {
       if (o.d > this.radiusCells) break;
       const x = cx + o.x;
@@ -168,8 +186,13 @@ export class World {
         Math.floor(x / DCELLS), Math.floor(y / DCELLS), Math.floor(z / DCELLS), this.seed
       );
       if (this.districts.get(d.key)?.cells.has(key)) continue;
-      this.queue.push([x, y, z]);
+      // Cells the crow is flying TOWARD are built first, so the world always
+      // thickens ahead of you rather than popping in at the edges.
+      const ahead = o.d < 0.001 ? 1 : (o.x * this.heading.x + o.y * this.heading.y + o.z * this.heading.z) / o.d;
+      scored.push({ c: [x, y, z], s: o.d - ahead * 2.2 });
     }
+    scored.sort((a, b) => a.s - b.s);
+    for (const it of scored) this.queue.push(it.c);
     // evict far cells — they unbuild themselves before being released
     const evictSq = (this.radiusCells + 0.9) ** 2;
     for (const node of this.districts.values()) {
@@ -189,6 +212,34 @@ export class World {
   /** Latest frame time, used to schedule dissolves. */
   now = 0;
 
+  /** Per-mesh assembly window on the shared far material (onBeforeRender trick). */
+  private bindFar(mesh: THREE.Mesh, node: DistrictNode,
+    times: { t0: number; t1: number; dir: number }): void {
+    mesh.userData.times = times;
+    mesh.onBeforeRender = () => {
+      const u = farMat.uniforms;
+      u.uT0.value = times.t0;
+      u.uT1.value = times.t1;
+      u.uDir.value = times.dir;
+      // blocks recede away from the player, in the district's own frame
+      (u.uOrigin.value as THREE.Vector3)
+        .copy(fxUniforms.uBuildOrigin.value as THREE.Vector3).sub(node.pos);
+      farMat.uniformsNeedUpdate = true;
+    };
+  }
+
+  /** Begin the block-by-block retraction of a district's far proxy. */
+  private retractFar(node: DistrictNode): void {
+    const mesh = node.far!;
+    const times = mesh.userData.times as { t0: number; t1: number; dir: number };
+    times.t0 = this.now;
+    times.t1 = this.now + 1.5;
+    times.dir = -1;
+    this.dyingFar.push({ mesh, node, until: this.now + 1.6 });
+    node.far = null;
+    this.farCount--;
+  }
+
   private recenterDistricts(): void {
     const [dx, dy, dz] = this.centerD;
 
@@ -206,23 +257,21 @@ export class World {
           this.landmarkCount++;
         }
       }
-      // far-field proxy: only outside the cell-streaming shell, so it never
-      // pokes through the real architecture
+      // far-field proxy: created outside the cell-streaming shell, but NOT
+      // torn down by distance alone — a proxy holds its ground until the real
+      // generator actually reaches its district (see the build loop), so
+      // buildings never vanish with nothing to replace them
       const cellShellD = (this.radiusCells * CELL) / DSIZE + 0.9;
-      if (o.d > cellShellD && !node.far) {
+      if (o.d > cellShellD && !node.far && node.cells.size === 0) {
         const built = buildFarDistrict(d, this.seed);
         if (built) {
           const mesh = new THREE.Mesh(built.geo, farMat);
           mesh.matrixAutoUpdate = false;
+          this.bindFar(mesh, node, { t0: this.now, t1: this.now + 1.3, dir: 1 });
           node.far = mesh;
           node.group.add(mesh);
           this.farCount++;
         }
-      } else if (o.d <= cellShellD && node.far) {
-        node.group.remove(node.far);
-        (node.far.geometry as THREE.BufferGeometry).dispose();
-        node.far = null;
-        this.farCount--;
       }
     }
 
@@ -255,6 +304,12 @@ export class World {
         this.cellCount--;
       }
     }
+    for (let i = this.dyingFar.length - 1; i >= 0; i--) {
+      if (this.dyingFar[i].node === node) {
+        this.dyingFar[i].mesh.geometry.dispose();
+        this.dyingFar.splice(i, 1);
+      }
+    }
     for (const cell of node.cells.values()) {
       for (const g of cell.disposables) g.dispose();
       this.cellCount--;
@@ -277,6 +332,11 @@ export class World {
       for (const g of d.cell.disposables) g.dispose();
     }
     this.dying.length = 0;
+    for (const f of this.dyingFar) {
+      f.node.group.remove(f.mesh);
+      f.mesh.geometry.dispose();
+    }
+    this.dyingFar.length = 0;
     for (const node of this.districts.values()) this.disposeNode(node);
     this.districts.clear();
     this.queue.length = 0;

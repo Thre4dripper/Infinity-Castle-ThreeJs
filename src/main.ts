@@ -194,6 +194,7 @@ function game(): void {
       flight.pos.copy(spawn.pos);
     }
 
+    world.heading.copy(flight.vel).normalize();
     world.update(started ? flight.pos : menuFocus, t);
     choreo.update(t, dt, world, started ? flight.pos : menuFocus, waveRng);
 

@@ -81,6 +81,7 @@ const BUILD_CHUNK = /* glsl */ `
   uniform float uTime;
   uniform float uT0;
   uniform float uT1;
+  uniform vec3 uBuildOrigin;
 
   vec3 assemble(vec3 pos) {
     float inP  = clamp((uTime - uT0) * 1.05 - aBuild * 1.15, 0.0, 1.0);
@@ -88,8 +89,16 @@ const BUILD_CHUNK = /* glsl */ `
     float outP = 1.0 - clamp((uTime - uT1) * 1.9 - (1.0 - aBuild) * 0.9, 0.0, 1.0);
     outP = outP * outP * (3.0 - 2.0 * outP);
     float s = min(inP, outP);
-    // pieces fall in from above and shrink away upward on the way out
-    vec3 from = aCent + vec3(0.0, 7.0, 0.0);
+
+    // Pieces do not drop out of the sky: they rush in from beyond the far side
+    // of the world, along the line you are travelling, so architecture
+    // materialises out of the haze ahead of you and unwinds behind.
+    mat3 R = mat3(modelMatrix);
+    vec3 worldC = (modelMatrix * vec4(aCent, 1.0)).xyz;
+    vec3 away = worldC - uBuildOrigin;
+    float len = max(length(away), 0.001);
+    vec3 localAway = transpose(R) * (away / len);
+    vec3 from = aCent + localAway * 26.0 + vec3(0.0, 3.0, 0.0);
     return mix(from, pos, s);
   }
 `;

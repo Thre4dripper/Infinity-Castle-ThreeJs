@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../core/rng';
-import { fxUniforms } from '../kit/materials';
+import { fxUniforms, lightUniforms } from '../kit/materials';
 import { District, DSIZE, DCELLS, isOccupied } from './districts';
 
 // ---------------------------------------------------------------------------
@@ -17,6 +17,19 @@ export const farUniforms = {
   uFogGlow: fxUniforms.uFogGlow,
   uFogDensity: { value: 0.02 },
   uEncode: fxUniforms.uEncode,
+  // per-mesh assembly window, pushed in onBeforeRender (same trick as cells):
+  // uDir +1 = blocks fly in and settle, -1 = they retract back into the haze
+  uT0: { value: -1e9 },
+  uT1: { value: 1e9 },
+  uDir: { value: 1 },
+  uOrigin: { value: new THREE.Vector3() },
+  // distant districts are lit by exactly the same environment as the real
+  // architecture, or they read as flat black cut-outs against a glowing sky
+  uSky: lightUniforms.uSky,
+  uGround: lightUniforms.uGround,
+  uDirColor: lightUniforms.uDirColor,
+  uDirDir: lightUniforms.uDirDir,
+  uAmbient: lightUniforms.uAmbient,
 };
 
 export const farMat = new THREE.ShaderMaterial({
@@ -26,12 +39,38 @@ export const farMat = new THREE.ShaderMaterial({
     varying vec3 vNormalW;
     varying float vDist;
     varying float vSeed;
+    varying vec3 vTint;
+    varying float vLit;
+    varying float vBuild;
     attribute float aSeed;
+    attribute vec3 aTint;
+    attribute float aLit;
+    attribute vec3 aCent;
+    uniform float uTime;
+    uniform float uT0;
+    uniform float uT1;
+    uniform float uDir;
+    uniform vec3 uOrigin;
     void main() {
       vLocal = position;
       vSeed = aSeed;
+      vTint = aTint;
+      vLit = aLit;
+      // SEQUENTIAL (DE)CONSTRUCTION — blocks never scale away to nothing:
+      // they drift back RIGIDLY while dissolving into the haze (see fragment),
+      // so a retracting district reads as weather swallowing it, not deletion.
+      float bh = fract(sin(aSeed * 78.233) * 43758.5453);
+      float span = max(uT1 - uT0, 0.001);
+      float t = clamp((uTime - uT0) / span, 0.0, 1.0);
+      float w = clamp(t * 1.6 - bh * 0.6, 0.0, 1.0);
+      w = w * w * (3.0 - 2.0 * w);
+      float s = mix(1.0 - w, w, step(0.0, uDir));
+      vBuild = s;
+      vec3 recede = aCent - uOrigin;
+      recede /= max(length(recede), 0.001);
+      vec3 p = position + (recede * (26.0 + bh * 44.0) + vec3(0.0, -5.0, 0.0)) * (1.0 - s);
       vNormalW = normalize(mat3(modelMatrix) * normal);
-      vec4 world = modelMatrix * vec4(position, 1.0);
+      vec4 world = modelMatrix * vec4(p, 1.0);
       vec4 mv = viewMatrix * world;
       vDist = length(mv.xyz);
       gl_Position = projectionMatrix * mv;
@@ -42,11 +81,19 @@ export const farMat = new THREE.ShaderMaterial({
     varying vec3 vNormalW;
     varying float vDist;
     varying float vSeed;
+    varying vec3 vTint;
+    varying float vLit;
+    varying float vBuild;
     uniform float uTime;
     uniform vec3 uFogColor;
     uniform vec3 uFogGlow;
     uniform float uFogDensity;
     uniform float uEncode;
+    uniform vec3 uSky;
+    uniform vec3 uGround;
+    uniform vec3 uDirColor;
+    uniform vec3 uDirDir;
+    uniform vec3 uAmbient;
 
     float hash21(vec2 p) {
       p = fract(p * vec2(123.34, 456.21));
@@ -73,37 +120,63 @@ export const farMat = new THREE.ShaderMaterial({
       vec2 f = fract(grid);
 
       float h = hash21(cell + vSeed * 37.0);
-      // whole bays and whole storeys go dark — breaks the checkerboard
+      // whole bays and whole storeys go dark — breaks the checkerboard.
+      // vLit comes from the district, so a lantern ocean blazes while a
+      // temple quarter stays sombre — the proxy matches what is really there.
       float bayLit = step(0.30, hash21(vec2(cell.x, floor(vSeed * 13.0))));
       float storeyLit = step(0.22, hash21(vec2(floor(cell.y), vSeed * 7.0)));
-      float lit = step(0.52, h) * bayLit * storeyLit;
+      float lit = step(1.0 - vLit, h) * bayLit * storeyLit;
 
       float win = step(abs(f.x - 0.5), 0.26) * step(abs(f.y - 0.56), 0.28);
       if (style > 0.78) win *= step(0.5, fract(grid.x * 3.0)); // lattice: split panes
-      if (style > 0.92) { win = 0.0; lit = 0.0; }              // blank wall / roof
 
       float flick = 0.8 + 0.2 * sin(uTime * (0.22 + h * 0.6) + h * 51.0);
       vec3 warm = mix(vec3(1.0, 0.44, 0.12), vec3(1.0, 0.76, 0.36), hash21(cell + 11.0));
 
-      // structural relief: floor slabs and corner posts read as architecture
-      float slab = smoothstep(0.90, 1.0, f.y) * 0.22;
-      float post = smoothstep(0.94, 1.0, abs(f.x - 0.5) * 2.0) * 0.12;
+      // albedo comes from the district's own palette, so the far field is the
+      // same material family as the architecture you can actually reach
+      vec3 albedo = vTint * (0.86 + 0.28 * sg);
 
-      vec3 base = vec3(0.09, 0.055, 0.038);
-      base *= 0.5 + 0.5 * (an.y * 1.15 + an.x * 0.7 + an.z * 0.9);
-      base *= 0.75 + 0.5 * sg;
+      // ----------------------------------------------------------------
+      // PROCEDURAL SURFACE
+      // Every face carries exposed timber framing, storey bands and grain,
+      // so distant blocks read as panelled buildings instead of blank slabs.
+      // All of it is a handful of ALU ops — no textures, no extra draws.
+      // ----------------------------------------------------------------
+      float postLine = smoothstep(0.84, 1.0, abs(f.x - 0.5) * 2.0);   // corner posts
+      float railLine = smoothstep(0.90, 1.0, abs(f.y - 0.5) * 2.0);   // floor rails
+      float midRail  = smoothstep(0.055, 0.0, abs(f.y - 0.34));       // waist rail
+      float frame = max(max(postLine, railLine), midRail * 0.7);
+      albedo = mix(albedo, vec3(0.16, 0.11, 0.07), frame * 0.85);
 
-      vec3 col = base
-               + warm * win * lit * flick * 1.15
-               + vec3(0.26, 0.13, 0.05) * (slab + post);
+      // board grain and panel-to-panel colour variation
+      float grain = hash21(floor(grid * vec2(1.0, 4.0)) + vSeed) * 0.16
+                  + hash21(floor(grid * 9.0)) * 0.07;
+      albedo *= 0.86 + grain;
+
+      // roof faces get tile courses instead of wall framing
+      float tileRow = step(0.5, fract(uv.y * 0.42)) * 0.16 + step(0.5, fract(uv.x * 0.9)) * 0.05;
+      albedo = mix(albedo, vec3(0.15, 0.10, 0.07) * (1.0 + tileRow), an.y * 0.75);
+
+      vec3 n = normalize(vNormalW);
+      vec3 light = mix(uGround, uSky, 0.5 + 0.5 * n.y);
+      light += uDirColor * max(dot(n, uDirDir) * 0.85 + 0.15, 0.0);
+      light += uAmbient;
+
+      vec3 col = albedo * light + warm * win * lit * flick * 1.5;
 
       // aerial perspective: the deep distance becomes glowing gold air and
       // actively emits, so the castle burns all the way to the horizon
       float fd = vDist * uFogDensity;
       float fog = 1.0 - exp(-fd * fd);
-      float far = smoothstep(55.0, 290.0, vDist);
+      float far = smoothstep(85.0, 330.0, vDist);
       col = mix(col, mix(uFogColor, uFogGlow, far), clamp(fog, 0.0, 1.0));
-      col += uFogGlow * 0.20 * far * far;
+      col += uFogGlow * 0.16 * far * far;
+
+      // (de)constructing blocks dissolve into that same haze — they become
+      // atmosphere, so their removal is invisible even before the detailed
+      // district has grown in to replace them
+      col = mix(mix(uFogColor, uFogGlow, max(far, 0.4)), col, vBuild);
 
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col, 1.0);
@@ -124,6 +197,23 @@ export function buildFarDistrict(d: District, seed: number): {
   const type = d.def.type;
   if (type === 'void') return null;
 
+  // each district contributes its own material palette and window density,
+  // so proxies read as a continuation of that district rather than generic mass
+  const PALETTE: Record<string, [number, number, number, number]> = {
+    residential: [0.50, 0.38, 0.26, 0.52],
+    labyrinth: [0.46, 0.34, 0.23, 0.60],
+    canyon: [0.48, 0.37, 0.27, 0.48],
+    shaft: [0.44, 0.36, 0.30, 0.55],
+    temple: [0.64, 0.57, 0.45, 0.34],
+    rotating: [0.49, 0.39, 0.31, 0.46],
+    bridgeweb: [0.40, 0.32, 0.25, 0.40],
+    lanternOcean: [0.53, 0.37, 0.25, 0.82],
+    hangingGarden: [0.41, 0.47, 0.34, 0.32],
+    cathedralVoid: [0.38, 0.31, 0.26, 0.36],
+    void: [0.38, 0.31, 0.26, 0.30],
+  };
+  const pal = PALETTE[type] ?? PALETTE.residential;
+
   const parts: THREE.BufferGeometry[] = [];
   const push = (w: number, h: number, dep: number, x: number, y: number, z: number) => {
     const g = new THREE.BoxGeometry(w, h, dep);
@@ -132,6 +222,19 @@ export function buildFarDistrict(d: District, seed: number): {
     const n = g.getAttribute('position').count;
     const s = new Float32Array(n).fill(rng() * 10);
     g.setAttribute('aSeed', new THREE.BufferAttribute(s, 1));
+    const tint = new Float32Array(n * 3);
+    const cent = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      tint[i * 3] = pal[0];
+      tint[i * 3 + 1] = pal[1];
+      tint[i * 3 + 2] = pal[2];
+      cent[i * 3] = x;
+      cent[i * 3 + 1] = y;
+      cent[i * 3 + 2] = z;
+    }
+    g.setAttribute('aTint', new THREE.BufferAttribute(tint, 3));
+    g.setAttribute('aCent', new THREE.BufferAttribute(cent, 3));
+    g.setAttribute('aLit', new THREE.BufferAttribute(new Float32Array(n).fill(pal[3]), 1));
     parts.push(g);
   };
 
