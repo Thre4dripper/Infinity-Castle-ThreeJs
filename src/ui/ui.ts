@@ -1,7 +1,22 @@
 import { IS_TOUCH } from '../core/engine';
 
-export interface UIOptions {
+export interface UIInitial {
   seed: string;
+  q: string;
+  motion: number;
+  pace: number;
+  weather: string;
+  mist: number;
+  density: number;
+  music: number;
+  sfx: number;
+  light: number;
+  inv: boolean;
+  ghost: boolean;
+}
+
+export interface UIOptions {
+  initial: UIInitial;
   onStart: () => void;
   onSeed: (seed: string) => void;
   onQuality: (tier: number | null) => void;
@@ -65,6 +80,7 @@ export class UI {
   }
 
   constructor(private o: UIOptions) {
+    const ini = o.initial;
     const ui = document.getElementById('ui')!;
     ui.innerHTML = `
       <div id="intro">
@@ -182,6 +198,9 @@ export class UI {
     document.getElementById('gear')!.classList.add('on');
     // portrait phones learn to rotate BEFORE they take wing, not after
     if (IS_TOUCH) document.getElementById('rotate-hint')!.classList.add('armed');
+    // controls reflect the URL-carried state
+    (document.getElementById('s-quality') as HTMLSelectElement).value = ini.q;
+    (document.getElementById('s-weather') as HTMLSelectElement).value = ini.weather;
 
     document.getElementById('start-btn')!.addEventListener('click', () => {
       // every flight begins with the field guide — BEGIN is the real launch

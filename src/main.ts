@@ -30,8 +30,37 @@ if (dev) {
 }
 
 function game(): void {
-  let seedStr = params.get('seed') ?? String(randomSeed() >>> 0);
+  // ---- settings live in the URL: refresh-proof, shareable ----
+  const num = (k: string, d: number) => {
+    const v = Number(params.get(k));
+    return Number.isFinite(v) && params.has(k) ? v : d;
+  };
+  const state = {
+    seed: params.get('seed') ?? '99',
+    q: params.get('q') ?? 'auto',
+    motion: num('motion', 100),
+    pace: num('pace', 100),
+    weather: params.get('weather') ?? 'auto',
+    mist: num('mist', 100),
+    density: num('density', 100),
+    music: num('music', 65),
+    sfx: num('sfx', 90),
+    light: num('light', 100),
+    inv: params.get('inv') === '1',
+    ghost: params.get('ghost') === '1',
+  };
+  const syncUrl = () => {
+    const u = new URL(location.href);
+    u.search = '';
+    for (const [k, v] of Object.entries(state)) {
+      u.searchParams.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+    }
+    history.replaceState(null, '', u.toString());
+  };
+
+  let seedStr = state.seed;
   let seed = seedFromString(seedStr);
+  setDensityScale(state.density / 100);
 
   const engine = new Engine(document.getElementById('app')!);
   const quality = new Quality();
@@ -72,7 +101,7 @@ function game(): void {
 
   // ---- UI ----
   const ui = new UI({
-    seed: seedStr,
+    initial: state,
     onStart: () => {
       audio.init();
       // the theme loops from the moment you take wing, and the castle
@@ -84,14 +113,40 @@ function game(): void {
       started = true;
     },
     onSeed: (s) => reseed(s),
-    onQuality: (t) => quality.setManual(t),
-    onMotion: (v) => (choreo.intensity = v),
-    onInvertY: (b) => (input.invertY = b),
-    onGhost: (b) => (ghost = b),
+    onQuality: (t) => {
+      state.q = t === null ? 'auto' : String(t);
+      syncUrl();
+      quality.setManual(t);
+    },
+    onMotion: (v) => {
+      state.motion = Math.round(v * 100);
+      syncUrl();
+      choreo.intensity = v;
+    },
+    onInvertY: (b) => {
+      state.inv = b;
+      syncUrl();
+      input.invertY = b;
+    },
+    onGhost: (b) => {
+      state.ghost = b;
+      syncUrl();
+      ghost = b;
+    },
     onMute: (b) => audio.setMuted(b),
-    onWeather: (w) => (weather.override = w),
-    onPace: (v) => (flight.speedScale = v),
+    onWeather: (w) => {
+      state.weather = w ?? 'auto';
+      syncUrl();
+      weather.override = w;
+    },
+    onPace: (v) => {
+      state.pace = Math.round(v * 100);
+      syncUrl();
+      flight.speedScale = v;
+    },
     onMist: (v) => {
+      state.mist = Math.round(v * 100);
+      syncUrl();
       mistScale = v;
       // more air means more of everything airborne — reallocate the mote
       // field only when the dial has moved meaningfully
@@ -164,6 +219,8 @@ function game(): void {
   function reseed(s: string): void {
     seedStr = s;
     seed = seedFromString(s);
+    state.seed = s;
+    syncUrl();
     world.reseed(seed);
     spawn = world.findSpawn();
     flight.pos.copy(spawn.pos);
@@ -171,9 +228,6 @@ function game(): void {
     flight.vel.set(0, 0, -8);
     menuFocus.copy(spawn.pos);
     ui.setSeedDisplay(s);
-    const url = new URL(location.href);
-    url.searchParams.set('seed', s);
-    history.replaceState(null, '', url.toString());
   }
 
   // ---- quality wiring ----
@@ -192,6 +246,17 @@ function game(): void {
   };
   quality.onChange((s) => applyTier(s));
   applyTier(quality.settings);
+
+  // ---- apply the URL-carried settings to every system, then mirror them ----
+  if (state.q !== 'auto') quality.setManual(Number(state.q));
+  choreo.intensity = state.motion / 100;
+  flight.speedScale = state.pace / 100;
+  weather.override = state.weather === 'auto' ? null : state.weather;
+  engine.renderer.toneMappingExposure = 1.55 * (state.light / 100);
+  input.invertY = state.inv;
+  audio.setMusicVolume(state.music / 100);
+  audio.setSfxVolume(state.sfx / 100);
+  syncUrl();
 
   // ---- audio hooks ----
   choreo.onBeat = (delay, strength) => audio.beat(delay, strength);
