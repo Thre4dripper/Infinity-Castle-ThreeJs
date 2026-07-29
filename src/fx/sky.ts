@@ -7,9 +7,11 @@ import { fxUniforms } from '../kit/materials';
  * cylinder, an ember abyss below, faint embers above. This is what makes the
  * world read as infinitely dense past the streamed rooms.
  */
-export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: number } } } {
+export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: number }; uJade: { value: number } } } {
   const uniforms = {
     uTime: { value: 0 },
+    /** 0..1 jade accent, raised by spirit-mist weather */
+    uJade: { value: 0 },
     uEncode: fxUniforms.uEncode,
   };
   const geo = new THREE.SphereGeometry(720, 28, 18);
@@ -30,6 +32,7 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
       varying vec3 vDir;
       uniform float uTime;
       uniform float uEncode;
+      uniform float uJade;
 
       float hash21(vec2 p) {
         p = fract(p * vec2(123.34, 456.21));
@@ -122,6 +125,13 @@ export function createSky(): { mesh: THREE.Mesh; uniforms: { uTime: { value: num
         col = mix(col, col * 0.58, L0.a); col += L0.rgb * 0.82;
 
         col += emberField(d, t);
+
+        // jade drifts through the middle air as a secondary tone — it tints the
+        // haze without ever competing with the red-gold core of the palette
+        float veil = 0.5 + 0.5 * sin(d.x * 1.7 + t * 0.035) * cos(d.z * 1.3 - t * 0.028);
+        float jade = uJade * veil * (1.0 - smoothstep(0.25, 0.8, abs(h)));
+        col = mix(col, mix(col, vec3(0.20, 0.44, 0.32), 0.55), jade);
+        col += vec3(0.05, 0.16, 0.11) * jade * 0.5;
 
         // blood moon burning through the haze
         vec3 moonDir = normalize(vec3(0.42, 0.34, -0.62));

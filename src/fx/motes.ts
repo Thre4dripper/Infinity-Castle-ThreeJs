@@ -16,6 +16,10 @@ export class Motes {
     uPx: { value: 1 },
     uFog: { value: 0.03 },
     uEncode: fxUniforms.uEncode,
+    uColorA: { value: new THREE.Color(0xffb070) },
+    uColorB: { value: new THREE.Color(0x8a90c8) },
+    uFall: { value: 0.35 },
+    uSize: { value: 1 },
   };
 
   constructor() {
@@ -34,23 +38,24 @@ export class Motes {
       blending: THREE.AdditiveBlending,
       vertexShader: /* glsl */ `
         attribute vec3 aSeed;
-        uniform float uTime, uBox, uPx;
+        uniform float uTime, uBox, uPx, uFall, uSize;
         uniform vec3 uCam;
+        uniform vec3 uColorA, uColorB;
         varying float vA;
         varying vec3 vCol;
         void main() {
           vec3 drift = vec3(
             sin(uTime * 0.11 + aSeed.x * 21.0) * 2.4,
-            -uTime * (0.28 + aSeed.y * 0.6),
+            -uTime * uFall * (0.5 + aSeed.y * 1.4),
             cos(uTime * 0.09 + aSeed.z * 17.0) * 2.4
           );
           vec3 p = uCam + mod(aSeed * uBox + drift - uCam, vec3(uBox)) - 0.5 * uBox;
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           float d = max(length(mv.xyz), 0.001);
-          gl_PointSize = min((1.1 + aSeed.x * 2.2) * uPx * (26.0 / d), 14.0);
+          gl_PointSize = min((1.1 + aSeed.x * 2.2) * uSize * uPx * (26.0 / d), 16.0);
           // fade near camera and into the distance
           vA = smoothstep(1.2, 3.5, d) * smoothstep(uBox * 0.52, uBox * 0.30, d);
-          vCol = mix(vec3(1.0, 0.62, 0.30), vec3(0.55, 0.62, 1.0), step(0.86, aSeed.z));
+          vCol = mix(uColorA, uColorB, step(0.7, aSeed.z));
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -81,5 +86,13 @@ export class Motes {
     this.uniforms.uTime.value = t;
     this.uniforms.uCam.value.copy(camPos);
     this.uniforms.uPx.value = pixelRatio;
+  }
+
+  /** Drive appearance from the current weather. */
+  setWeather(a: THREE.Color, b: THREE.Color, fall: number, size: number): void {
+    this.uniforms.uColorA.value.copy(a);
+    this.uniforms.uColorB.value.copy(b);
+    this.uniforms.uFall.value = fall;
+    this.uniforms.uSize.value = size;
   }
 }

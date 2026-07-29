@@ -8,13 +8,15 @@ export interface TierSettings {
   motes: number;
   bloom: boolean;
   buildBudgetMs: number;
+  /** mist decks — the cheapest way to hide the streaming edge */
+  mistLayers: number;
 }
 
 export const TIERS: TierSettings[] = [
-  { name: 'ember', renderScale: 0.62, dprCap: 1.0, radiusCells: 2.8, motes: 260, bloom: false, buildBudgetMs: 2.0 },
-  { name: 'low', renderScale: 0.78, dprCap: 1.5, radiusCells: 3.4, motes: 650, bloom: false, buildBudgetMs: 2.5 },
-  { name: 'high', renderScale: 0.9, dprCap: 2.0, radiusCells: 4.0, motes: 1100, bloom: false, buildBudgetMs: 3.0 },
-  { name: 'ultra', renderScale: 1.0, dprCap: 2.0, radiusCells: 4.6, motes: 1600, bloom: true, buildBudgetMs: 3.5 },
+  { name: 'ember', renderScale: 0.62, dprCap: 1.0, radiusCells: 2.8, motes: 260, bloom: false, buildBudgetMs: 2.0, mistLayers: 5 },
+  { name: 'low', renderScale: 0.78, dprCap: 1.5, radiusCells: 3.4, motes: 650, bloom: false, buildBudgetMs: 2.5, mistLayers: 8 },
+  { name: 'high', renderScale: 0.9, dprCap: 2.0, radiusCells: 4.0, motes: 1100, bloom: false, buildBudgetMs: 3.0, mistLayers: 13 },
+  { name: 'ultra', renderScale: 1.0, dprCap: 2.0, radiusCells: 4.6, motes: 1600, bloom: true, buildBudgetMs: 3.5, mistLayers: 18 },
 ];
 
 /**

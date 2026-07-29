@@ -14,6 +14,8 @@ import { Input } from './input/input';
 import { collideSphere, escapeDirection } from './physics/collision';
 import { createSky } from './fx/sky';
 import { Motes } from './fx/motes';
+import { Mist } from './fx/mist';
+import { Weather } from './fx/weather';
 import { Post } from './fx/post';
 import { AudioEngine } from './audio/audio';
 import { UI } from './ui/ui';
@@ -42,6 +44,9 @@ function game(): void {
   engine.scene.add(sky.mesh);
   const motes = new Motes();
   engine.scene.add(motes.points);
+  const mist = new Mist();
+  engine.scene.add(mist.mesh);
+  const weather = new Weather();
   const post = new Post(engine);
   const audio = new AudioEngine();
 
@@ -119,6 +124,7 @@ function game(): void {
     world.landmarkRadiusD = s.radiusCells * 0.62;
     world.farRadiusD = s.radiusCells * 0.9;
     motes.setCount(s.motes);
+    mist.setLayers(s.mistLayers);
     post.setEnabled(s.bloom);
     // fog is thin enough to see landmarks and far-field districts loom
     baseFog = 0.75 / (s.radiusCells * CELL);
@@ -196,16 +202,29 @@ function game(): void {
     const here = districtAtCell(
       Math.round(focus.x / CELL), Math.round(focus.y / CELL), Math.round(focus.z / CELL), seed
     );
-    const targetFog = baseFog * here.def.fogMul;
+
+    // ---- weather: layered air that hides the streaming edge ----
+    weather.update(dt, t, here.def.type, here.seed & 7);
+    fxUniforms.uFogColor.value.copy(weather.fog);
+    fxUniforms.uFogGlow.value.copy(weather.glow);
+    motes.setWeather(weather.moteA, weather.moteB, weather.moteFall, weather.moteSize);
+    mist.update(t, engine.camera.position, weather.mist, weather.mistDensity);
+
+    const targetFog = baseFog * here.def.fogMul * weather.fogMul;
     engine.fog.density += (targetFog - engine.fog.density) * Math.min(dt * 0.6, 1);
     glowUniforms.uFog.value = engine.fog.density;
     fxUniforms.uFogDensity.value = engine.fog.density;
     fxUniforms.uTime.value = t;
+    fxUniforms.uBuildOrigin.value.copy(focus);
     farUniforms.uFogDensity.value = engine.fog.density;
     farUniforms.uTime.value = t;
 
     sky.mesh.position.copy(engine.camera.position);
     sky.uniforms.uTime.value = t;
+    // jade only shows through when the air itself has turned green
+    sky.uniforms.uJade.value += (
+      (weather.label === 'spirit mist' ? 0.85 : 0.06) - sky.uniforms.uJade.value
+    ) * Math.min(dt * 0.25, 1);
     motes.update(t, engine.camera.position, engine.renderer.getPixelRatio());
     glowUniforms.uPx.value = engine.renderer.getPixelRatio();
 
@@ -230,7 +249,7 @@ function game(): void {
           tier: quality.settings.name + (quality.auto ? '·auto' : ''),
           waves: choreo.waveCount,
           district: here.def.label,
-          chapter: here.chapter,
+          chapter: here.chapter + ' · ' + weather.label,
         });
       }
     }
