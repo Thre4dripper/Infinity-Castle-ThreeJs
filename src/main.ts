@@ -64,6 +64,8 @@ function game(): void {
   let stuckTimer = 0;
   let mistScale = 1;
   let moteScaleApplied = 1;
+  let lastBuilt = 0;
+  let buildRate = 0;
   const escapeVec = new THREE.Vector3();
   const worldOccupied = (x: number, y: number, z: number, s: number) => isOccupied(x, y, z, s);
 
@@ -72,6 +74,10 @@ function game(): void {
     seed: seedStr,
     onStart: () => {
       audio.init();
+      // the theme loops from the moment you take wing, and the castle
+      // announces you with the attached entrance sting
+      audio.startMusic('/theme.mp3');
+      audio.enterSound();
       input.enabled = true;
       input.requestLock();
       started = true;
@@ -94,6 +100,8 @@ function game(): void {
         motes.setCount(Math.round(quality.settings.motes * target));
       }
     },
+    onMusicVol: (v) => audio.setMusicVolume(v),
+    onSfxVol: (v) => audio.setSfxVolume(v),
     onDensity: (v) => {
       setDensityScale(v);
       reseed(seedStr); // regrow the same castle at the new density
@@ -217,6 +225,15 @@ function game(): void {
     world.update(started ? flight.pos : menuFocus, t);
     choreo.update(t, dt, world, started ? flight.pos : menuFocus, waveRng);
 
+    // ---- construction soundscape: the world generating is ALWAYS audible ----
+    const delta = world.cellsBuilt - lastBuilt;
+    lastBuilt = world.cellsBuilt;
+    if (dt > 0) {
+      const inst = Math.min(delta / dt, 40);
+      buildRate += (inst - buildRate) * Math.min(dt * 2.2, 1);
+    }
+    if (started) audio.construction(buildRate);
+
     // ---- Director drives presentation from the district you are inside ----
     const focus = started ? flight.pos : menuFocus;
     const here = districtAtCell(
@@ -283,5 +300,5 @@ function game(): void {
   engine.start();
 
   // debug handle for dev tooling
-  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality, input, weather };
+  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality, input, weather, audio };
 }

@@ -13,6 +13,8 @@ export interface UIOptions {
   onPace: (v: number) => void;
   onMist: (v: number) => void;
   onDensity: (v: number) => void;
+  onMusicVol: (v: number) => void;
+  onSfxVol: (v: number) => void;
 }
 
 export interface HudData {
@@ -141,6 +143,8 @@ export class UI {
         </div>
         <div class="set-row"><label>mist amount</label><input id="s-mist" type="range" min="0" max="200" value="100"/></div>
         <div class="set-row"><label>density (rebuilds)</label><input id="s-density" type="range" min="40" max="160" value="100"/></div>
+        <div class="set-row"><label>music volume</label><input id="s-music" type="range" min="0" max="100" value="65"/></div>
+        <div class="set-row"><label>sfx volume</label><input id="s-sfx" type="range" min="0" max="100" value="90"/></div>
         <div class="set-row"><label>invert Y</label><input id="s-invert" type="checkbox"/></div>
         <div class="set-row"><label>ghost (no collision)</label><input id="s-ghost" type="checkbox"/></div>
         <div class="set-row"><label>mute</label><input id="s-mute" type="checkbox"/></div>
@@ -203,6 +207,12 @@ export class UI {
     // density regenerates the world — apply when the user releases the slider
     (document.getElementById('s-density') as HTMLInputElement).addEventListener('change', (e) => {
       o.onDensity(Number((e.target as HTMLInputElement).value) / 100);
+    });
+    (document.getElementById('s-music') as HTMLInputElement).addEventListener('input', (e) => {
+      o.onMusicVol(Number((e.target as HTMLInputElement).value) / 100);
+    });
+    (document.getElementById('s-sfx') as HTMLInputElement).addEventListener('input', (e) => {
+      o.onSfxVol(Number((e.target as HTMLInputElement).value) / 100);
     });
     (document.getElementById('s-invert') as HTMLInputElement).addEventListener('change', (e) => {
       o.onInvertY((e.target as HTMLInputElement).checked);
