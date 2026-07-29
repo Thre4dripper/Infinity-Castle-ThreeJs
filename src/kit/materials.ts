@@ -13,7 +13,7 @@ export const C = {
   WOOD_L: 0x8a6531,
   WOOD_PALE: 0xa88a52,
   LACQ: 0x8f2a12,
-  LACQ_B: 0xc0431d,
+  LACQ_B: 0x963117,
   PLASTER: 0xa8956d,
   PLASTER_D: 0x6f6448,
   TATAMI: 0x6e7c46,
@@ -27,7 +27,14 @@ export const C = {
   LANT_TOP: 0xffbe74,
   LANT: 0xff8f3c,
   LANT_DEEP: 0xcf4a16,
+  /** minority lantern tints — jade and indigo among the amber */
+  LANT_JADE: 0x74d89a,
+  LANT_JADE_DEEP: 0x2f8a58,
+  LANT_BLUE: 0x6fa8e8,
+  LANT_BLUE_DEEP: 0x2a5aa8,
   GLOW: 0xffa050,
+  GLOW_JADE: 0x66e0a0,
+  GLOW_BLUE: 0x66a8ff,
   WINDOW: 0xd98e3f,
 } as const;
 
@@ -40,18 +47,25 @@ export const fxUniforms = {
   uFogGlow: { value: new THREE.Color(0xe0a355) },
   uFogDensity: { value: 0.02 },
   uTime: { value: 0 },
+  /** where new architecture streams in from — the player's position */
+  uBuildOrigin: { value: new THREE.Vector3() },
 };
 
-/** Lighting constants for the custom opaque shader (replaces scene lights). */
+/**
+ * Lighting. The castle is lit by its environment — an amber bounce from the
+ * lantern sea below and cooler light from the heights — but the key light
+ * keeps a real falloff. Contrast is what gives eaves, brackets and lattice
+ * their form; flatten it and everything collapses into featureless boxes.
+ */
 export const lightUniforms = {
   /** cool light from the heights */
-  uSky: { value: new THREE.Color(0.74, 0.70, 0.95) },
-  /** the lantern sea below — the dominant light in the whole castle */
-  uGround: { value: new THREE.Color(1.82, 1.26, 0.74) },
-  uDirColor: { value: new THREE.Color(0.55, 0.55, 0.72) },
+  uSky: { value: new THREE.Color(1.05, 1.00, 1.32) },
+  /** the lantern sea below — the dominant bounce in the whole castle */
+  uGround: { value: new THREE.Color(2.25, 1.74, 1.20) },
+  uDirColor: { value: new THREE.Color(0.85, 0.85, 1.05) },
   uDirDir: { value: new THREE.Vector3(0.35, 1.0, 0.18).normalize() },
-  /** flat fill so no surface is ever unlit */
-  uAmbient: { value: new THREE.Color(0.34, 0.25, 0.18) },
+  /** small irradiance floor only — enough to keep shadow sides readable */
+  uAmbient: { value: new THREE.Color(0.30, 0.22, 0.16) },
 };
 
 // ---------------------------------------------------------------------------
@@ -89,12 +103,12 @@ const FOG_CHUNK = /* glsl */ `
   vec3 aerial(vec3 col, float dist) {
     float fd = dist * uFogDensity;
     float fog = 1.0 - exp(-fd * fd);
-    float far = smoothstep(55.0, 290.0, dist);
+    float far = smoothstep(85.0, 330.0, dist);
     // the hot glow only takes over far out, so nearby wood keeps its own colour
     vec3 hazeCol = mix(uFogColor, uFogGlow, far);
     vec3 outc = mix(col, hazeCol, clamp(fog, 0.0, 1.0));
     // and the deep distance actively EMITS — the castle burns to the horizon
-    outc += uFogGlow * 0.20 * far * far;
+    outc += uFogGlow * 0.16 * far * far;
     return outc;
   }
 `;
@@ -140,16 +154,49 @@ export const opaqueMat = new THREE.ShaderMaterial({
     uniform vec3 uDirDir;
     uniform vec3 uAmbient;
     uniform float uEncode;
+    uniform sampler2D uArt;
+    uniform float uArtTiles;
     varying vec3 vColor;
     varying vec3 vNormalW;
+    varying vec3 vWorld;
     varying float vDist;
+    varying vec2 vUv;
+    varying float vArt;
+
+    float h21(vec2 p) {
+      p = fract(p * vec2(127.31, 311.7));
+      p += dot(p, p + 34.7);
+      return fract(p.x * p.y);
+    }
+
     void main() {
+      vec3 albedo = vColor;
+      // painted panels sample a motif from the art atlas instead of a flat colour.
+      // Scaled into the same albedo range as the palette, or pale motifs clip
+      // to white once the lighting is applied.
+      if (vArt >= 0.0) {
+        vec2 tile = vec2(mod(vArt, uArtTiles), floor(vArt / uArtTiles));
+        vec2 uv = (clamp(vUv, 0.004, 0.996) + tile) / uArtTiles;
+        albedo = texture2D(uArt, uv).rgb * 0.46;
+      } else {
+        // Micro surface break-up. Large flat faces — plaster panels, slabs,
+        // roof planes — otherwise read as moulded plastic. Two hashes in
+        // world space give board grain and weathering for almost nothing.
+        vec3 an = abs(normalize(vNormalW));
+        vec2 sp = an.y > 0.6 ? vWorld.xz : (an.x > 0.5 ? vWorld.zy : vWorld.xy);
+        float grain = h21(floor(sp * 5.0)) * 0.13 + h21(floor(sp * 21.0)) * 0.06;
+        float weather = h21(floor(sp * 0.7)) * 0.12;
+        albedo *= 0.88 + grain + weather * 0.5;
+      }
       vec3 n = normalize(vNormalW);
-      // hemisphere: cool from above, strong warm bounce from the lantern sea
+      // hemisphere GI: warm bounce from below, cool from above
       vec3 light = mix(uGround, uSky, 0.5 + 0.5 * n.y);
-      light += uDirColor * max(dot(n, uDirDir), 0.0);
+      // key light keeps a real falloff — only lightly wrapped, so faces still
+      // read as distinct planes instead of blending into one flat mass
+      float ndl = dot(n, uDirDir);
+      light += uDirColor * max(ndl * 0.85 + 0.15, 0.0);
       light += uAmbient;
-      vec3 col = aerial(vColor * light, vDist);
+      vec3 col = aerial(albedo * light, vDist);
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col, 1.0);
     }
@@ -167,12 +214,23 @@ export const emissiveMat = new THREE.ShaderMaterial({
   vertexShader: /* glsl */ `
     ${BUILD_CHUNK}
     attribute vec3 color;
+    attribute float aArt;
     varying vec3 vColor;
     varying vec3 vN;
     varying vec3 vV;
     varying float vDist;
+    varying float vFlick;
     void main() {
       vColor = color;
+      // PULSATING LIGHT — a random minority of the bright sources (lanterns,
+      // coals) breathe slowly, and everything lit carries a faint candle
+      // tremor. Gated on brightness so paper walls stay calm.
+      float bright = max(color.r, max(color.g, color.b));
+      float gate = smoothstep(1.2, 2.0, bright) * step(fract(aBuild * 9.73), 0.45);
+      float ph = aBuild * 271.3;
+      vFlick = 1.0
+        + gate * 0.26 * sin(uTime * (0.7 + fract(aBuild * 5.31) * 1.3) + ph)
+        + smoothstep(0.5, 1.2, bright) * 0.05 * sin(uTime * 6.3 + ph * 2.7);
       vec3 p = assemble(position);
       vN = normalMatrix * normal;
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -187,13 +245,15 @@ export const emissiveMat = new THREE.ShaderMaterial({
     varying vec3 vN;
     varying vec3 vV;
     varying float vDist;
+    varying float vFlick;
     uniform float uEncode;
     void main() {
       vec3 n = normalize(vN);
       vec3 v = normalize(vV);
       float ndv = abs(dot(n, v));
-      // paper glows brightest facing you and falls off at grazing angles
-      vec3 col = vColor * (0.42 + 0.58 * pow(ndv, 0.7));
+      // paper falls off at grazing angles; lantern bodies carry an intensity
+      // above 1 in their vertex colour so they stay genuinely hot
+      vec3 col = vColor * (0.30 + 0.46 * pow(ndv, 0.7)) * vFlick;
       col = aerial(col, vDist);
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col, 1.0);
@@ -243,6 +303,10 @@ export const glowMat = new THREE.ShaderMaterial({
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       float d = max(length(mv.xyz), 0.001);
       float flicker = 0.84 + 0.16 * sin(uTime * 2.3 + aPhase * 17.0) * sin(uTime * 5.9 + aPhase * 29.0);
+      // a random minority of haloes breathe deeply, in and out of the dark
+      float breathe = 1.0 + step(fract(aPhase * 7.31), 0.4)
+        * 0.45 * sin(uTime * (0.55 + fract(aPhase * 3.7) * 1.2) + aPhase * 40.0);
+      flicker *= breathe;
       float pulse = 1.0 + uPulse * 1.7;
       gl_PointSize = min(aSize * uPx * flicker * pulse * (250.0 / d), 110.0);
       vColor = aColor;
@@ -259,7 +323,7 @@ export const glowMat = new THREE.ShaderMaterial({
       vec2 c = gl_PointCoord - 0.5;
       float r = length(c) * 2.0;
       float a = pow(max(1.0 - r, 0.0), 2.6);
-      vec3 col = vColor * vFade * 0.85;
+      vec3 col = vColor * vFade * 0.55;
       // authored in display space; linearize when the composer will re-encode
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
       gl_FragColor = vec4(col * a, a * min(vFade, 1.0));

@@ -15,6 +15,11 @@ export interface BoxOpts {
   jit?: number;
   /** push to the emissive (unlit/glowing) bucket */
   em?: boolean;
+  /**
+   * Emissive intensity. Values above 1 are allowed and are what separate a
+   * burning lantern (≈2) from a softly backlit paper wall (≈0.8).
+   */
+  emi?: number;
   /** register an AABB collider from this geometry */
   collide?: boolean;
 }
@@ -109,6 +114,13 @@ export class Kit {
     }
     g.applyMatrix4(_m1);
     if (!g.getAttribute('color')) paint(g, color, o.jit ?? 0, this.rng);
+    if (o.emi !== undefined && o.emi !== 1) {
+      // deliberately unclamped: emissive sources are allowed to be HDR
+      const col = g.getAttribute('color') as THREE.BufferAttribute;
+      const arr = col.array as Float32Array;
+      for (let i = 0; i < arr.length; i++) arr[i] *= o.emi;
+      col.needsUpdate = true;
+    }
     this.tagAssembly(g);
     if (o.em) this.emissive.push(g);
     else this.opaque.push(g);
@@ -224,9 +236,9 @@ export function bakeShading(g: THREE.BufferGeometry, glows: Glow[], half = 5): v
     const sx = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(x)) * inv2, 0), 1);
     const sy = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(y)) * inv2, 0), 1);
     const sz = 0.6 + 0.4 * Math.min(Math.max((half - Math.abs(z)) * inv2, 0), 1);
-    // AO never crushes to black — darkness lives between districts, not inside
-    // buildings, so the floor is lifted well off zero
-    const ao = 0.55 + 0.45 * (sx * sy * sz) * (0.84 + 0.16 * ((y + half) / (half * 2)));
+    // AO keeps a wide range — this is what carves out eaves, corners, lattice
+    // and joinery. Lifting the floor too far makes everything look hollow.
+    const ao = 0.46 + 0.54 * (sx * sy * sz) * (0.84 + 0.16 * ((y + half) / (half * 2)));
     let warm = 0;
     for (let j = 0; j < glows.length; j++) {
       const gl = glows[j];
@@ -236,10 +248,11 @@ export function bakeShading(g: THREE.BufferGeometry, glows: Glow[], half = 5): v
       const s2 = gl.size * gl.size * 4.2;
       warm += s2 / (s2 + dx * dx + dy * dy + dz * dz);
     }
-    warm = Math.min(warm, 1.8);
-    const r = col.getX(i) * ao * (1 + warm * 1.9);
-    const gg = col.getY(i) * ao * (1 + warm * 1.05);
-    const b = col.getZ(i) * ao * (1 + warm * 0.4);
+    // lantern pooling is an accent on top of the GI, not the main light
+    warm = Math.min(warm, 1.3);
+    const r = col.getX(i) * ao * (1 + warm * 1.25);
+    const gg = col.getY(i) * ao * (1 + warm * 0.72);
+    const b = col.getZ(i) * ao * (1 + warm * 0.30);
     col.setXYZ(i, Math.min(r, 1), Math.min(gg, 1), Math.min(b, 1));
   }
   col.needsUpdate = true;
