@@ -380,7 +380,7 @@ function shapeAllows(d: District, lx: number, ly: number, lz: number): boolean {
 export function isOccupiedScatter(cx: number, cy: number, cz: number, seed: number): boolean {
   const d = districtAtCell(cx, cy, cz, seed);
   if (!shapeAllows(d, localCell(cx), localCell(cy), localCell(cz))) return false;
-  const p = Math.min(0.97, d.def.fill * d.density);
+  const p = Math.min(0.97, d.def.fill * d.density * densityScale);
   return rand3(cx, cy, cz, seed ^ OCC_SALT) < p;
 }
 
@@ -432,6 +432,14 @@ const PLOT_SALT = 0x2b7f11;
 const plotCache = new Map<string, Plot>();
 let plotSeed = NaN;
 
+/** User dial from settings: scales building density everywhere (0.4–1.6). */
+let densityScale = 1;
+export function setDensityScale(v: number): void {
+  densityScale = Math.max(0.35, Math.min(1.65, v));
+  plotCache.clear();
+  plotSeed = NaN; // force cache rebuild even for the same seed
+}
+
 const UNBUILT: Plot = { built: false, y0: 0, h: 0, style: 'machiya', ax: 0, az: 0, w: 0, d: 0 };
 
 /**
@@ -474,7 +482,7 @@ export function plotAt(cx: number, cz: number, dyDistrict: number, seed: number)
 
   // density varies in drifting neighbourhoods rather than per-cell static
   const cluster = valueNoise3(ax * 0.09, dyDistrict * 0.5, az * 0.09, seed ^ 0x77aa);
-  const chance = Math.min(0.99, d.def.fill * d.density * (0.8 + cluster * 0.8));
+  const chance = Math.min(0.99, d.def.fill * d.density * densityScale * (0.8 + cluster * 0.8));
   const roll = rand3(ax, dyDistrict, az, seed ^ PLOT_SALT);
   const built = !blocked && roll < chance;
 
