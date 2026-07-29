@@ -90,7 +90,8 @@ export class Choreographer {
       case 'rotate':
         // the whole district turns so slowly you doubt it is moving at all
         _axis.set(d.spinAxis === 0 ? 1 : 0, d.spinAxis === 1 ? 1 : 0, d.spinAxis === 2 ? 1 : 0);
-        _q.setFromAxisAngle(_axis, t * d.spinRate * inten);
+        _tmp.setFromAxisAngle(_axis, t * d.spinRate * inten);
+        _q.multiply(_tmp);
         break;
       case 'drift':
         _off.set(
@@ -102,7 +103,8 @@ export class Choreographer {
       case 'breathe':
         _off.y = Math.sin(t * d.driftFreq * 0.8 + d.phase) * d.driftAmp * inten;
         _axis.set(0, 1, 0);
-        _q.setFromAxisAngle(_axis, Math.sin(t * 0.05 + d.phase) * 0.04 * inten);
+        _tmp.setFromAxisAngle(_axis, Math.sin(t * 0.05 + d.phase) * 0.04 * inten);
+        _q.multiply(_tmp);
         break;
     }
 

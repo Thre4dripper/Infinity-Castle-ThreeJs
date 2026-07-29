@@ -1,8 +1,8 @@
 /**
- * Zero-asset WebAudio synthesis:
- *  - biwa plucks (offline Karplus–Strong render) + taiko boom on castle beats
+ * Zero-asset WebAudio synthesis — flight sounds only:
+ *  - biwa plucks + taiko boom on castle reconfiguration beats
  *  - filtered-noise wind, modulated by airspeed
- *  - wing-flap whooshes
+ *  - wing-flap whooshes and collision impacts
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -134,6 +134,37 @@ export class AudioEngine {
     const target = Math.min(0.015 + (speed / 30) * 0.13, 0.15);
     this.windGain.gain.setTargetAtTime(target, t, 0.18);
     this.windFilter.frequency.setTargetAtTime(170 + speed * 24, t, 0.2);
+  }
+
+  /** Clipping the architecture: a wooden knock plus a low body thud. */
+  impact(strength: number): void {
+    if (!this.ctx || !this.master || !this.noiseBuf) return;
+    const t0 = this.ctx.currentTime;
+    const amp = Math.min(0.05 + strength * 0.01, 0.22);
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t0);
+    osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.18);
+    const og = this.ctx.createGain();
+    og.gain.setValueAtTime(0.0001, t0);
+    og.gain.exponentialRampToValueAtTime(amp, t0 + 0.008);
+    og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    osc.connect(og).connect(this.master);
+    osc.start(t0);
+    osc.stop(t0 + 0.35);
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 900 + Math.random() * 500;
+    f.Q.value = 4;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(amp * 0.6, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t0, Math.random(), 0.2);
   }
 
   setMuted(m: boolean): void {

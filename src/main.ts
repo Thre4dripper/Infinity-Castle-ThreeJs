@@ -147,21 +147,26 @@ function game(): void {
       // integrate in substeps so high speed can't tunnel through walls
       const steps = ghost ? 1 : Math.max(1, Math.ceil((flight.speed * dt) / 0.45));
       const sdt = dt / steps;
+      let hit = 0;
       for (let i = 0; i < steps; i++) {
         flight.pos.addScaledVector(flight.vel, sdt);
-        if (!ghost) collideSphere(world, flight.pos, flight.vel, 0.45);
+        if (!ghost) hit = Math.max(hit, collideSphere(world, flight.pos, flight.vel, 0.45));
       }
+      if (hit > 4) audio.impact(hit);
 
-      // unstick: wedged in geometry (or shoved by a moving district)
+      // Unstick: a LAST RESORT for genuinely wedged geometry (or a district
+      // that slid into you). It must not fire during normal slow flight, or
+      // it shoves the crow through walls and collision stops feeling solid.
       if (!ghost) {
-        if (flight.speed < 3.2 && (input.flap || stuckTimer > 0)) stuckTimer += dt;
-        else stuckTimer = Math.max(0, stuckTimer - dt * 2.5);
-        if (stuckTimer > 0.6) {
+        const wedged = flight.speed < 1.6 && input.flap;
+        if (wedged) stuckTimer += dt;
+        else stuckTimer = Math.max(0, stuckTimer - dt * 3);
+        if (stuckTimer > 1.4) {
           if (escapeDirection(world, flight.pos, worldOccupied, escapeVec)) {
-            flight.pos.addScaledVector(escapeVec, dt * 14);
-            flight.vel.addScaledVector(escapeVec, dt * 22);
+            flight.pos.addScaledVector(escapeVec, dt * 5);
+            flight.vel.addScaledVector(escapeVec, dt * 9);
           }
-          if (stuckTimer > 3) stuckTimer = 0;
+          if (stuckTimer > 3.5) stuckTimer = 0;
         }
       }
 
