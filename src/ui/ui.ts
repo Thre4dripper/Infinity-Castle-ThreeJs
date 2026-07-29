@@ -91,9 +91,10 @@ export class UI {
         <div class="controls-hint">${
           IS_TOUCH
             ? '<span><b>left stick</b> steer</span><span><b>right drag</b> look</span><span><b>FLAP</b> surge</span><span><b>BRAKE</b> hover</span>'
-            : '<span><b>mouse / arrows / AD</b> steer</span><span><b>Q / E</b> roll</span><span><b>space / W / click</b> surge</span><span><b>shift / S</b> brake</span><span><b>C</b> camera</span><span><b>R</b> new castle</span><span><b>M</b> mute</span>'
+            : '<span><b>mouse / arrows / AD</b> steer</span><span><b>Q / E</b> roll</span><span><b>space / W / click</b> surge</span><span><b>shift / S</b> brake</span><span><b>C</b> camera</span><span><b>ESC</b> pause</span><span><b>R</b> new castle</span><span><b>M</b> mute</span>'
         }</div>
-        <div class="seed-line">SEED ${this.esc(o.seed)}</div>
+        <div class="seed-line">SEED ${this.esc(ini.seed)}</div>
+        <a id="gh-link" href="https://github.com/Thre4dripper/Infinity-Castle-ThreeJs" target="_blank" rel="noopener">⬆ open source · star it on GitHub</a>
       </div>
       <div id="hud">
         <div class="hud-tl">
