@@ -78,7 +78,9 @@
     .seed-line { margin-top: 26px; font-size: 11px; color: #56506a; letter-spacing: 0.2em; }
 
     /* ---------- HUD ---------- */
-    #hud { position: absolute; inset: 0; display: none; }
+    /* the HUD is pure display — clicks must fall through to the canvas so
+       clicking the castle re-captures the mouse after ESC */
+    #hud { position: absolute; inset: 0; display: none; pointer-events: none; }
     #hud.on { display: block; }
     .hud-tl, .hud-tr {
       position: absolute; top: max(12px, env(safe-area-inset-top)); font-size: 12px; letter-spacing: 0.14em;

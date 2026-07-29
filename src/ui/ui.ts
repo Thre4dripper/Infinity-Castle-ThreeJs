@@ -167,6 +167,14 @@ export class UI {
     (document.getElementById('s-mute') as HTMLInputElement).checked = m;
   }
 
+  /** Show/hide the "cursor freed" banner when pointer lock changes. */
+  setCursorFree(free: boolean): void {
+    if (!this.started) return;
+    document.getElementById('cursor-hint')!.classList.toggle('show', free);
+    // once the mouse is captured the panel is unreachable — fold it away
+    if (!free) this.settings.classList.remove('open');
+  }
+
   private startHints(): void {
     const show = () => {
       this.hint.textContent = HINTS[this.hintIdx % HINTS.length];

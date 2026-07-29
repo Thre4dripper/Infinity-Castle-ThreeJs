@@ -14,6 +14,10 @@ export class Input {
   brake = false;
   invertY = false;
   enabled = false;
+  /** fires whenever pointer lock is gained or lost (desktop) */
+  onLock: ((locked: boolean) => void) | null = null;
+  private relockPending = false;
+  private lockEverEngaged = false;
   private keyL = false;
   private keyR = false;
   private keyU = false;
@@ -75,6 +79,11 @@ export class Input {
           this.tryLock();
         }
       });
+      document.addEventListener('pointerlockchange', () => {
+        const locked = document.pointerLockElement === canvas;
+        if (locked) this.lockEverEngaged = true;
+        this.onLock?.(locked);
+      });
       document.addEventListener('mousemove', (e) => {
         if (document.pointerLockElement === canvas) {
           this.lookDX += e.movementX;
@@ -105,8 +114,11 @@ export class Input {
   axes(): { x: number; y: number } {
     let x = this.steerX + (this.keyR ? 1 : 0) - (this.keyL ? 1 : 0);
     let y = this.steerY + (this.keyD ? 1 : 0) - (this.keyU ? 1 : 0);
-    // hover-steer when pointer lock isn't active (blocked browsers/iframes)
-    if (!IS_TOUCH && this.enabled && document.pointerLockElement !== this.canvas) {
+    // hover-steer exists ONLY for environments where pointer lock never works
+    // (embedded iframes). Once lock has engaged, a freed cursor must be able
+    // to reach the settings without dragging the crow around.
+    if (!IS_TOUCH && this.enabled && !this.lockEverEngaged
+      && document.pointerLockElement !== this.canvas) {
       x += Input.curve(this.mouseNX);
       y += Input.curve(this.mouseNY);
     }
@@ -139,7 +151,15 @@ export class Input {
     try {
       const p = this.canvas.requestPointerLock?.() as unknown as Promise<void> | undefined;
       p?.catch?.(() => {
-        /* pointer lock unavailable (embedded browser) — drag-look still works */
+        // Browsers refuse pointer lock for ~1.3s after ESC releases it. A
+        // click inside that window used to fail silently — the cursor felt
+        // "stuck outside". Retry once after the cooldown.
+        if (this.relockPending) return;
+        this.relockPending = true;
+        window.setTimeout(() => {
+          this.relockPending = false;
+          if (this.enabled && document.pointerLockElement !== this.canvas) this.tryLock();
+        }, 1400);
       });
     } catch {
       /* ignore */
