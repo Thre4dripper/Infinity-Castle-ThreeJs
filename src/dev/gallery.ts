@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mulberry32 } from '../core/rng';
 import { Kit, bakeShading, buildGlowPoints } from '../kit/geoUtils';
-import { opaqueMat, emissiveMat, glowMat, glowUniforms } from '../kit/materials';
+import { opaqueMat, emissiveMat, glowMat, glowUniforms, fxUniforms } from '../kit/materials';
 import {
   floorTatami, floorPlanks, slabBase, pillar, bracketCluster, railing, stairs,
   torii, lantern, lanternHang, lanternPost, wallShoji, wallPlaster, wallLattice,
-  wallPlanks, openingTrim, engawa, pavilion,
+  wallPlanks, wallKoshi, wallKura, wallFusuma, byobu, tokonoma,
+  roofHip, roofGable, roofThatch, roofTiered, openingTrim, engawa, pavilion,
 } from '../kit/parts';
 import { buildCell } from '../world/roomBuilder';
 import { isOccupied } from '../world/districts';
@@ -67,18 +68,28 @@ export function runGallery(mode: string): void {
       ['lantern-post', (k) => lanternPost(k, 0, 0, 0)],
       ['wall-shoji', (k) => wallShoji(k, 8, 0, 7)],
       ['wall-shoji-gap', (k) => wallShoji(k, 8, 0, 7, { gap: 2.6 })],
+      ['wall-fusuma', (k) => wallFusuma(k, 8, 0, 7)],
+      ['wall-fusuma-gap', (k) => wallFusuma(k, 8, 0, 7, { gap: 2.6 })],
+      ['wall-koshi', (k) => wallKoshi(k, 8, 0, 7)],
+      ['wall-kura', (k) => wallKura(k, 8, 0, 7)],
       ['wall-plaster', (k) => wallPlaster(k, 8, 0, 7, { window: true })],
       ['wall-lattice', (k) => wallLattice(k, 8, 0, 7)],
       ['wall-planks', (k) => wallPlanks(k, 8, 0, 7)],
+      ['byobu', (k) => byobu(k, 0, 0, 0, 0, 4)],
+      ['tokonoma', (k) => tokonoma(k, 0, 0, 0, 2.6)],
+      ['roof-hip', (k) => roofHip(k, 6, 6, 2)],
+      ['roof-gable', (k) => roofGable(k, 6, 6, 2)],
+      ['roof-thatch', (k) => roofThatch(k, 6, 6, 2)],
+      ['roof-tiered', (k) => roofTiered(k, 6, 6, 0, 3)],
       ['opening-trim', (k) => openingTrim(k, 8, 0, 7, { ranma: true, lanterns: true })],
       ['engawa', (k) => engawa(k, 7, 0.5)],
       ['pavilion', (k) => pavilion(k, 0, 0, 0)],
     ];
-    const cols = 5;
+    const cols = 6;
     demos.forEach(([label, fn], i) => {
       const k = new Kit(rng);
       fn(k);
-      addKit(k, (i % cols) * 12 - 24, Math.floor(i / cols) * 12 - 18, label);
+      addKit(k, (i % cols) * 14 - 35, Math.floor(i / cols) * 14 - 21, label);
     });
   } else {
     // modules: pull real cells out of the world pipeline
@@ -103,8 +114,13 @@ export function runGallery(mode: string): void {
 
   const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
-    glowUniforms.uTime.value = clock.getElapsedTime();
+    const t = clock.getElapsedTime();
+    glowUniforms.uTime.value = t;
     glowUniforms.uPx.value = renderer.getPixelRatio();
+    // the assembly shader needs a clock or every part stays collapsed
+    fxUniforms.uTime.value = t + 10;
+    fxUniforms.uFogDensity.value = 0.0015;
+    fxUniforms.uBuildOrigin.value.copy(camera.position);
     controls.update();
     renderer.render(scene, camera);
   });

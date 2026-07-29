@@ -1,11 +1,21 @@
 import { C } from '../kit/materials';
 import { Kit } from '../kit/geoUtils';
+import type { BuildingStyle } from './districts';
 import {
   ROOM, slabBase, floorTatami, floorPlanks, pillar, bracketCluster, railing,
   stairs, torii, lantern, lanternHang, lanternPost, lanternTiny, lanternString,
-  wallShoji, wallPlaster, wallLattice, wallPlanks, openingTrim, engawa, pavilion,
-  roofHip, noren, teaSet, brazier, incense, futon, tree, waterChannel, stoneLantern,
+  andon, kagaribi,
+  wallShoji, wallPlaster, wallLattice, wallPlanks, wallKoshi, wallKura, wallFusuma,
+  byobu, tokonoma, openingTrim, engawa, pavilion, roofHip, roofGable, roofThatch, roofTiered,
+  noren, teaSet, brazier, incense, futon, tree, waterChannel, stoneLantern,
+  irori, shelf, crateStack, barrel, oddments, banner, dryingRack,
 } from '../kit/parts';
+
+/** The style of the building the current cell belongs to (null = freeform). */
+let activeStyle: BuildingStyle | null = null;
+export function setActiveStyle(s: BuildingStyle | null): void {
+  activeStyle = s;
+}
 
 // Local face indices: 0:+X 1:-X 2:+Y 3:-Y 4:+Z 5:-Z
 export type Open = boolean[];
@@ -16,31 +26,60 @@ const W_INNER = 10.7;
 const CORNER = 5.42;
 
 /**
+ * Furnish a room with proper Edo-period fittings, placed on the structural
+ * grid rather than scattered: the hearth on the room's centre line, shelving
+ * flush against a wall, storage stacked squarely in a corner.
+ */
+function furnish(k: Kit, rng: () => number, y: number): void {
+  const WALL_IN = 4.6;   // flush against the wall line
+  const CORNER_IN = 4.2; // squarely into a corner
+  const roll = rng();
+
+  if (roll < 0.3) {
+    // hearth room: irori on centre, cushions squared around it
+    irori(k, 0, y, 0);
+    for (const [ox, oz] of [[-1.5, 0], [1.5, 0], [0, -1.5], [0, 1.5]]) {
+      if (rng() < 0.7) k.box(0.62, 0.09, 0.62, ox, y + 0.05, oz, C.LACQ_B, { jit: 0.2 });
+    }
+  } else if (roll < 0.55) {
+    // living room: low table centred, tea laid out on it
+    k.box(2.0, 0.12, 1.2, 0, y + 0.36, 0, C.WOOD_D, { jit: 0.1 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      k.box(0.14, 0.32, 0.14, sx * 0.85, y + 0.16, sz * 0.45, C.WOOD_D);
+    }
+    teaSet(k, 0, y + 0.43, 0);
+    for (const sz of [-1, 1]) k.box(0.66, 0.09, 0.66, 0, y + 0.05, sz * 1.5, C.LACQ_B, { jit: 0.2 });
+  } else if (roll < 0.75) {
+    // sleeping room: futon squared to the wall, a night lamp beside it
+    futon(k, 0, y, -2.4, 0);
+    if (rng() < 0.4) andon(k, 2.4, y, -2.4);
+    else if (rng() < 0.6) brazier(k, 2.6, y, 0, 1);
+  } else {
+    // storeroom: shelving on the wall line, crates and barrels in the corner
+    shelf(k, 0, y, -WALL_IN, 3.0, 0);
+    crateStack(k, CORNER_IN, y, CORNER_IN, 1);
+    if (rng() < 0.6) barrel(k, CORNER_IN - 0.9, y, CORNER_IN, 1);
+  }
+
+  // one corner gets working oddments — always a corner, never mid-floor
+  if (rng() < 0.55) {
+    const sx = rng() < 0.5 ? -1 : 1;
+    const sz = rng() < 0.5 ? -1 : 1;
+    oddments(k, sx * CORNER_IN, y, sz * CORNER_IN);
+  }
+  if (rng() < 0.4) incense(k, -CORNER_IN, y, 0);
+}
+
+/**
  * Scatter small evidence that someone was here a moment ago. Called on
  * floor-bearing rooms; keeps the castle inhabited rather than abandoned.
  */
 function signsOfLife(k: Kit, rng: () => number, y: number): void {
-  const roll = rng();
-  if (roll < 0.28) {
-    k.box(2.0, 0.12, 1.2, 0.5, y + 0.36, -0.4, C.WOOD_D, { jit: 0.1 });
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      k.box(0.14, 0.32, 0.14, 0.5 + sx * 0.85, y + 0.16, -0.4 + sz * 0.45, C.WOOD_D);
-    }
-    teaSet(k, 0.5, y + 0.43, -0.4);
-    k.box(0.7, 0.1, 0.7, -0.9, y + 0.05, 0.7, C.LACQ_B, { jit: 0.25, ry: rng() });
-  } else if (roll < 0.46) {
-    brazier(k, (rng() - 0.5) * 4, y, (rng() - 0.5) * 4, 1);
-    if (rng() < 0.6) futon(k, 2.6, y, -2.6, rng() * 3);
-  } else if (roll < 0.6) {
-    incense(k, (rng() - 0.5) * 5, y, (rng() - 0.5) * 5);
-  } else if (roll < 0.72) {
-    futon(k, (rng() - 0.5) * 4, y, (rng() - 0.5) * 4, rng() * 3);
-    k.box(0.5, 0.6, 0.4, -3.4, y + 0.3, 3.2, C.WOOD_D, { jit: 0.2 });
-  }
-  // a stray sandal pair or storage chest against a wall
+  furnish(k, rng, y);
+  // storage chest set flush against the wall, aligned with it
   if (rng() < 0.35) {
-    k.box(1.3, 0.7, 0.7, -4.0, y + 0.35, rng() * 6 - 3, C.WOOD_D, { jit: 0.2, collide: true });
-    k.box(1.36, 0.1, 0.74, -4.0, y + 0.72, rng() * 6 - 3, C.METAL, { jit: 0.2 });
+    k.box(1.3, 0.7, 0.7, -4.5, y + 0.35, rng() < 0.5 ? 2.2 : -2.2, C.WOOD_D, { jit: 0.15, collide: true });
+    k.box(1.36, 0.1, 0.74, -4.5, y + 0.72, rng() < 0.5 ? 2.2 : -2.2, C.METAL, { jit: 0.15 });
   }
 }
 
@@ -115,11 +154,7 @@ function shell(k: Kit, rng: () => number, open: Open, o: ShellOpts = {}): void {
   for (const face of FACES) {
     k.begin(face.x, 0, face.z, face.q);
     if (!open[face.f]) {
-      const roll = rng();
-      if (roll < 0.46) wallShoji(k, W_INNER, y0, y1, { gap: rng() < 0.25 ? 3.0 : 0 });
-      else if (roll < 0.68) wallPlaster(k, W_INNER, y0, y1, { window: rng() < 0.78 });
-      else if (roll < 0.85) wallLattice(k, W_INNER, y0, y1);
-      else wallPlanks(k, W_INNER, y0, y1);
+      styledWall(k, rng, W_INNER, y0, y1);
     } else {
       const roll = rng();
       if (roll < 0.42) {
@@ -130,12 +165,65 @@ function shell(k: Kit, rng: () => number, open: Open, o: ShellOpts = {}): void {
         railing(k, 0, FLOOR, 0.1, W_INNER * 0.9, true);
       }
       if (hasFloor && rng() < (o.engawaChance ?? 0.5)) engawa(k, SPAN * 0.8, FLOOR);
+      // a shop banner and drying rack squared to the opening posts
+      if (hasFloor && rng() < 0.3) banner(k, -W_INNER * 0.34, FLOOR, 0.9, 3.0);
+      if (rng() < 0.3) dryingRack(k, W_INNER * 0.26, y1 - 0.9, 0.85, 1.8);
     }
-    // strings of small lanterns under the eaves — signature of the castle
-    if (rng() < (o.lean ? 0.4 : 0.62)) {
+    // a string of small lanterns under the eaves — the castle's signature
+    if (rng() < (o.lean ? 0.35 : 0.55)) {
       lanternString(k, -4.4, y1 - 0.15, 0.62, 4.4, y1 - 0.15, 0.62, 3);
     }
     k.end();
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Wall treatment chosen by building style, so every face of a machiya is
+ * latticed, every face of a kura is plastered, and so on. A building reads as
+ * ONE building instead of a bag of random surfaces.
+ */
+function styledWall(k: Kit, rng: () => number, w: number, y0: number, y1: number): void {
+  switch (activeStyle) {
+    case 'machiya':
+      if (rng() < 0.6) wallKoshi(k, w, y0, y1);
+      else if (rng() < 0.5) wallFusuma(k, w, y0, y1);
+      else wallShoji(k, w, y0, y1, { gap: rng() < 0.3 ? 3.0 : 0 });
+      return;
+    case 'kura':
+      wallKura(k, w, y0, y1);
+      return;
+    case 'minka':
+      if (rng() < 0.45) wallPlanks(k, w, y0, y1);
+      else if (rng() < 0.5) wallFusuma(k, w, y0, y1);
+      else wallPlaster(k, w, y0, y1, { window: rng() < 0.6 });
+      return;
+    case 'yashiki':
+      // a mansion is where the painted screens live
+      if (rng() < 0.45) wallFusuma(k, w, y0, y1, { gap: rng() < 0.3 ? 3.2 : 0 });
+      else if (rng() < 0.7) wallShoji(k, w, y0, y1, { gap: rng() < 0.35 ? 3.2 : 0 });
+      else wallKura(k, w, y0, y1);
+      return;
+    case 'yagura':
+    case 'tenshu':
+      if (rng() < 0.45) wallPlaster(k, w, y0, y1, { window: true });
+      else if (rng() < 0.6) wallFusuma(k, w, y0, y1);
+      else wallKura(k, w, y0, y1);
+      return;
+    case 'chashitsu':
+      if (rng() < 0.45) wallLattice(k, w, y0, y1);
+      else if (rng() < 0.5) wallFusuma(k, w, y0, y1);
+      else wallShoji(k, w, y0, y1, { gap: rng() < 0.4 ? 2.6 : 0 });
+      return;
+    default: {
+      const roll = rng();
+      if (roll < 0.34) wallShoji(k, w, y0, y1, { gap: rng() < 0.25 ? 3.0 : 0 });
+      else if (roll < 0.55) wallFusuma(k, w, y0, y1);
+      else if (roll < 0.72) wallPlaster(k, w, y0, y1, { window: rng() < 0.78 });
+      else if (roll < 0.88) wallLattice(k, w, y0, y1);
+      else wallPlanks(k, w, y0, y1);
+    }
   }
 }
 
@@ -163,8 +251,10 @@ const tatamiHall: Builder = (k, rng, open) => {
   }
   if (rng() < 0.3) {
     const sx = rng() < 0.5 ? -1 : 1;
-    k.box(1.4, 1.9, 0.07, sx * 3.0, FLOOR + 0.97, -3.8, C.METAL, { ry: 0.3, jit: 0.25 });
-    k.box(1.4, 1.9, 0.07, sx * 4.2, FLOOR + 0.97, -3.6, C.METAL, { ry: -0.3, jit: 0.25 });
+    byobu(k, sx * 3.2, FLOOR, -3.6, rng() < 0.5 ? 0 : Math.PI / 2, 4);
+  }
+  if (rng() < 0.4) {
+    tokonoma(k, 0, FLOOR, -5.0, 2.8);
   }
   signsOfLife(k, rng, FLOOR);
 };
@@ -244,8 +334,14 @@ const gateChamber: Builder = (k, rng, open) => {
     jit: 0.2,
     ry: openLateral[0] && openLateral[0].q % 2 === 1 ? Math.PI / 2 : 0,
   });
-  lanternPost(k, -4.0, FLOOR, -4.0);
-  lanternPost(k, 4.0, FLOOR, 4.0);
+  // gates are tended: fire baskets or stone-set lantern posts flank the way
+  if (rng() < 0.45) {
+    kagaribi(k, -4.0, FLOOR, -4.0);
+    kagaribi(k, 4.0, FLOOR, 4.0);
+  } else {
+    lanternPost(k, -4.0, FLOOR, -4.0);
+    lanternPost(k, 4.0, FLOOR, 4.0);
+  }
   if (rng() < 0.5) lanternHang(k, 0, CEIL - 0.05, 0, 1.3, 1.35);
 };
 
@@ -266,7 +362,10 @@ const balconyRing: Builder = (k, rng, open) => {
   railing(k, -inner, y, 0, inner * 2 + 0.4, false);
   railing(k, inner, y, 0, inner * 2 + 0.4, false);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    if (rng() < 0.6) lanternPost(k, sx * 4.6, y, sz * 4.6, 2.6);
+    if (rng() < 0.6) {
+      if (rng() < 0.25) andon(k, sx * 4.6, y, sz * 4.6, 1.1);
+      else lanternPost(k, sx * 4.6, y, sz * 4.6, 2.6);
+    }
   }
   if (rng() < 0.5) lanternHang(k, 0, 5.7, 0, 2.4 + rng() * 2.8, 1.4);
 };
@@ -322,7 +421,8 @@ const pavilionIsle: Builder = (k, rng, open) => {
   railing(k, -4.1, y, 0, 8.4, false);
   railing(k, 4.1, y, 0, 8.4, false);
   lanternPost(k, -3.7, y, 3.7, 2.5);
-  lanternPost(k, 3.7, y, -3.7, 2.5);
+  if (rng() < 0.4) kagaribi(k, 3.7, y, -3.7);
+  else lanternPost(k, 3.7, y, -3.7, 2.5);
   if (open[2] && rng() < 0.6) {
     k.box(0.05, 4.0, 0.05, -3.0, 3.8, 0, C.ROPE);
     k.box(0.05, 4.0, 0.05, 3.0, 3.8, 0, C.ROPE);
@@ -527,11 +627,33 @@ export const ARCHETYPES: ArchetypeDef[] = [
 ];
 
 /**
- * Crown a building column with a real roof. Called in CELL space after the
- * room's orientation has been baked, so roofs always point at world up.
+ * Crown a building column with a real roof, in the building's own style. This
+ * is what makes a machiya read as a machiya from a kilometre away.
  */
 export function buildRoofCap(k: Kit, rng: () => number): void {
-  roofHip(k, SPAN - 0.6, SPAN - 0.6, 5.6, 2.6 + rng() * 1.6);
+  const w = SPAN - 0.6;
+  switch (activeStyle) {
+    case 'machiya':
+      roofGable(k, w, w, 5.6, 2.4 + rng() * 0.9);
+      return;
+    case 'minka':
+      roofThatch(k, w * 0.92, w * 0.92, 5.6, 4.0 + rng() * 1.4);
+      return;
+    case 'tenshu':
+      roofTiered(k, w * 0.86, w * 0.86, 5.6, 3);
+      return;
+    case 'yagura':
+      roofTiered(k, w * 0.8, w * 0.8, 5.6, 2);
+      return;
+    case 'chashitsu':
+      roofThatch(k, w * 0.8, w * 0.8, 5.6, 2.8 + rng());
+      return;
+    case 'kura':
+      roofHip(k, w, w, 5.6, 2.2 + rng() * 0.8);
+      return;
+    default:
+      roofHip(k, w, w, 5.6, 2.6 + rng() * 1.6);
+  }
 }
 
 const BY_NAME = new Map(ARCHETYPES.map((a) => [a.name, a]));

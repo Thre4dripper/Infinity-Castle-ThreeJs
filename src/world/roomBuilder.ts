@@ -242,7 +242,8 @@ export function buildCell(
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
       k.box(0.5, 1.8, 0.5, sx * 4.2, -7.2, sz * 4.2, C.WOOD_D, { rz: sx * 0.16, rx: -sz * 0.16, jit: 0.15 });
     }
-    if (rng() < 0.6) lanternHang(k, 0, -6.9, 0, 0.9 + rng(), 1.0);
+    // a lantern slung beneath the building so it reads from below too
+    if (rng() < 0.55) lanternHang(k, 0, -6.9, 0, 0.9 + rng(), 1.0);
   }
 
   const glows = k.glows;
