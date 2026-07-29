@@ -69,6 +69,7 @@ export class Motes {
           float a = pow(max(1.0 - r, 0.0), 2.0) * vA * 0.5;
           vec3 col = vCol;
           if (uEncode < 0.5) col = pow(col, vec3(2.2));
+          if (a < 0.006) discard;
           gl_FragColor = vec4(col * a, a);
         }
       `,

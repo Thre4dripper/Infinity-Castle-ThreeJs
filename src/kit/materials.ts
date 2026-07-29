@@ -332,6 +332,8 @@ export const glowMat = new THREE.ShaderMaterial({
       vec2 c = gl_PointCoord - 0.5;
       float r = length(c) * 2.0;
       float a = pow(max(1.0 - r, 0.0), 2.6);
+      // the halo corners and faded sprites are pure blend-cost — skip them
+      if (a * vFade < 0.004) discard;
       vec3 col = vColor * vFade * 0.55;
       // authored in display space; linearize when the composer will re-encode
       if (uEncode < 0.5) col = pow(col, vec3(2.2));
