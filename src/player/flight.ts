@@ -3,17 +3,26 @@ import type { Input } from '../input/input';
 
 const _fwd = new THREE.Vector3();
 const _target = new THREE.Vector3();
+const _AX = new THREE.Vector3(1, 0, 0);
+const _AY = new THREE.Vector3(0, 1, 0);
+const _AZ = new THREE.Vector3(0, 0, 1);
+const _qa = new THREE.Quaternion();
+const _qb = new THREE.Quaternion();
 
 /**
  * Arcade-but-swoopy flight: velocity chases forward·targetSpeed, with a stall
  * sink at low airspeed and banked rolls driven by yaw rate. Feels like a bird,
  * stays stable at any frame rate.
+ *
+ * Orientation is a free quaternion — the castle has no up, and neither does
+ * the crow. Pitch is unclamped: fly straight up, loop, come out inverted and
+ * only the lanterns falling "sideways" will tell you.
  */
 export class Flight {
   pos = new THREE.Vector3();
   vel = new THREE.Vector3(0, 0, -8);
-  yaw = 0;
-  pitch = 0;
+  /** full 3D orientation — steering always turns screen-relative */
+  readonly ori = new THREE.Quaternion();
   roll = 0;
 
   flapping = false;
@@ -28,24 +37,35 @@ export class Flight {
   }
 
   forward(out: THREE.Vector3): THREE.Vector3 {
-    const cp = Math.cos(this.pitch);
-    return out.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
+    return out.set(0, 0, -1).applyQuaternion(this.ori);
+  }
+
+  up(out: THREE.Vector3): THREE.Vector3 {
+    return out.set(0, 1, 0).applyQuaternion(this.ori);
+  }
+
+  /** Point the crow (used at spawn). */
+  setLook(yaw: number, pitch: number): void {
+    this.ori.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
   }
 
   update(dt: number, input: Input): void {
     const look = input.consumeLook();
-    const prevYaw = this.yaw;
+    const ax = input.axes();
+    const inv = input.invertY ? -1 : 1;
 
     const sens = 0.0021;
-    this.yaw -= look.dx * sens;
-    this.pitch -= look.dy * sens * (input.invertY ? -1 : 1);
-    // analog steer (touch stick, keys, hover fallback)
-    const ax = input.axes();
-    this.yaw -= ax.x * 1.9 * dt;
-    this.pitch -= ax.y * 1.6 * dt * (input.invertY ? -1 : 1);
-    this.pitch = Math.max(-1.32, Math.min(1.32, this.pitch));
+    const dyaw = -look.dx * sens - ax.x * 1.9 * dt;
+    const dpitch = (-look.dy * sens - ax.y * 1.6 * dt) * inv;
+    const droll = input.rollAxis() * 2.3 * dt;
+    // rotate about the crow's OWN axes — no clamp, no horizon lock.
+    _qa.setFromAxisAngle(_AY, dyaw);
+    _qb.setFromAxisAngle(_AX, dpitch);
+    this.ori.multiply(_qa).multiply(_qb);
+    if (droll !== 0) this.ori.multiply(_qa.setFromAxisAngle(_AZ, droll));
+    this.ori.normalize();
 
-    const yawRate = dt > 0 ? (this.yaw - prevYaw) / dt : 0;
+    const yawRate = dt > 0 ? dyaw / dt : 0;
     this.smYawRate += (yawRate - this.smYawRate) * Math.min(dt * 8, 1);
     const targetRoll = Math.max(-1.05, Math.min(1.05, -this.smYawRate * 0.55));
     this.roll += (targetRoll - this.roll) * Math.min(dt * 5, 1);
@@ -82,6 +102,6 @@ export class Flight {
   /** Write orientation into an object (the crow root). */
   applyTo(obj: THREE.Object3D): void {
     obj.position.copy(this.pos);
-    obj.rotation.set(this.pitch, this.yaw, this.roll, 'YXZ');
+    obj.quaternion.copy(this.ori).multiply(_qa.setFromAxisAngle(_AZ, this.roll));
   }
 }

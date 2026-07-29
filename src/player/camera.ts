@@ -10,26 +10,27 @@ const _q = new THREE.Quaternion();
 
 /**
  * Spring-arm third-person camera with speed FOV kick and roll lean.
- * Optional first-person mode.
+ * The camera's up follows the CROW's up — not the world's — so a loop or an
+ * inverted dive feels continuous instead of hitting an invisible ceiling.
  */
 export class CameraRig {
   firstPerson = false;
   private smPos = new THREE.Vector3();
+  private smUp = new THREE.Vector3(0, 1, 0);
   private smFov = 68;
   private initialized = false;
 
   update(dt: number, cam: THREE.PerspectiveCamera, flight: Flight,
     collide?: (p: THREE.Vector3, r: number) => void): void {
     flight.forward(_fwd);
+    flight.up(_up);
 
     if (this.firstPerson) {
-      _desired.copy(flight.pos).addScaledVector(_fwd, 0.35);
-      _desired.y += 0.12;
+      _desired.copy(flight.pos).addScaledVector(_fwd, 0.35).addScaledVector(_up, 0.12);
       this.smPos.copy(_desired);
     } else {
       const dist = 4.1 + flight.speed * 0.045;
-      _desired.copy(flight.pos).addScaledVector(_fwd, -dist);
-      _desired.y += 1.15;
+      _desired.copy(flight.pos).addScaledVector(_fwd, -dist).addScaledVector(_up, 1.15);
       if (!this.initialized) {
         this.smPos.copy(_desired);
         this.initialized = true;
@@ -48,11 +49,13 @@ export class CameraRig {
     _look.copy(flight.pos).addScaledVector(_fwd, this.firstPerson ? 10 : 7);
     _look.addScaledVector(flight.vel, 0.04);
 
-    // roll lean: rotate world-up about the view axis
+    // chase the crow's up smoothly so loops read as one continuous motion
+    const uf = 1 - Math.exp(-dt * (this.firstPerson ? 14 : 6.5));
+    this.smUp.lerp(_up, uf).normalize();
+    // roll lean: rotate the followed up about the view axis
     _viewAxis.copy(_look).sub(cam.position).normalize();
     _q.setFromAxisAngle(_viewAxis, flight.roll * (this.firstPerson ? 0.85 : 0.38));
-    _up.set(0, 1, 0).applyQuaternion(_q);
-    cam.up.copy(_up);
+    cam.up.copy(this.smUp).applyQuaternion(_q);
     cam.lookAt(_look);
 
     const targetFov = Math.min(64 + flight.speed * 0.65, 86);

@@ -52,7 +52,7 @@ function game(): void {
 
   let spawn = world.findSpawn();
   flight.pos.copy(spawn.pos);
-  flight.yaw = spawn.yaw;
+  flight.setLook(spawn.yaw, 0);
 
   let started = false;
   let ghost = false;
@@ -101,7 +101,7 @@ function game(): void {
     world.reseed(seed);
     spawn = world.findSpawn();
     flight.pos.copy(spawn.pos);
-    flight.yaw = spawn.yaw;
+    flight.setLook(spawn.yaw, 0);
     flight.vel.set(0, 0, -8);
     menuFocus.copy(spawn.pos);
     ui.setSeedDisplay(s);

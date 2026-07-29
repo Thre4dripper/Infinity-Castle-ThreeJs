@@ -18,6 +18,8 @@ export class Input {
   private keyR = false;
   private keyU = false;
   private keyD = false;
+  private keyRollL = false;
+  private keyRollR = false;
   private mouseNX = 0; // cursor offset from screen centre, -1..1
   private mouseNY = 0;
 
@@ -36,6 +38,8 @@ export class Input {
         case 'KeyD': this.keyR = true; e.preventDefault(); return;
         case 'ArrowUp': this.keyU = true; e.preventDefault(); return;
         case 'ArrowDown': this.keyD = true; e.preventDefault(); return;
+        case 'KeyQ': this.keyRollL = true; return;
+        case 'KeyE': this.keyRollR = true; return;
       }
       if (e.repeat) return;
       switch (e.code) {
@@ -55,6 +59,8 @@ export class Input {
         case 'KeyD': this.keyR = false; break;
         case 'ArrowUp': this.keyU = false; break;
         case 'ArrowDown': this.keyD = false; break;
+        case 'KeyQ': this.keyRollL = false; break;
+        case 'KeyE': this.keyRollR = false; break;
         case 'Space':
         case 'KeyW': this.flap = false; break;
         case 'ShiftLeft':
@@ -108,6 +114,11 @@ export class Input {
       x: Math.max(-1, Math.min(1, x)),
       y: Math.max(-1, Math.min(1, y)),
     };
+  }
+
+  /** Q/E roll axis, -1..1 (positive = roll left, flight-sim style). */
+  rollAxis(): number {
+    return (this.keyRollL ? 1 : 0) - (this.keyRollR ? 1 : 0);
   }
 
   private static curve(v: number): number {
