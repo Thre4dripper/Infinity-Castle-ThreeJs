@@ -80,8 +80,9 @@ export class AudioEngine {
       this.plucks.push(this.renderPluck(ctx, f));
     }
 
-    // the attached castle-entrance sting
-    void fetch('/enter.mp3')
+    // the attached castle-entrance sting (relative path — survives subpath
+    // deployments like GitHub Pages)
+    void fetch('enter.mp3')
       .then((r) => r.arrayBuffer())
       .then((b) => ctx.decodeAudioData(b))
       .then((buf) => { this.enterBuf = buf; })

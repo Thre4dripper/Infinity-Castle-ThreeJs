@@ -76,7 +76,7 @@ function game(): void {
       audio.init();
       // the theme loops from the moment you take wing, and the castle
       // announces you with the attached entrance sting
-      audio.startMusic('/theme.mp3');
+      audio.startMusic('theme.mp3');
       audio.enterSound();
       input.enabled = true;
       input.requestLock();
