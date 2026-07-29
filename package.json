@@ -10,10 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "0.170.0"
+    "three": "0.185.1"
   },
   "devDependencies": {
-    "@types/three": "0.170.0",
+    "@types/three": "0.185.1",
     "typescript": "^5.6.3",
     "vite": "^6.0.3"
   }
