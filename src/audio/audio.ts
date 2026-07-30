@@ -359,6 +359,43 @@ export class AudioEngine {
     }
   }
 
+  /** Wisp pickup — a biwa harmonic that climbs with the combo. */
+  wispChime(combo: number): void {
+    if (!this.ctx || !this.sfx) return;
+    const t0 = this.ctx.currentTime;
+    // pitch climbs the hirajōshi ladder as the chain grows
+    const rate = 1.0 + Math.min(combo, 9) * 0.14;
+    this.playPluck(t0, rate, 0.4);
+    // a glassy overtone on top
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 1040 * rate;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    osc.connect(g).connect(this.sfx);
+    osc.start(t0);
+    osc.stop(t0 + 0.55);
+  }
+
+  /** Depth milestone — one deep ceremonial drum. */
+  depthDrum(): void {
+    if (!this.ctx || !this.sfx) return;
+    const t0 = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(72, t0);
+    osc.frequency.exponentialRampToValueAtTime(36, t0 + 0.7);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
+    osc.connect(g).connect(this.sfx);
+    osc.start(t0);
+    osc.stop(t0 + 1.1);
+  }
+
   setSfxVolume(v: number): void {
     this.sfxVol = v;
     if (this.sfx && this.ctx) {
