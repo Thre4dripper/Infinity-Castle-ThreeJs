@@ -20,6 +20,12 @@ export class CameraRig {
   private smFov = 68;
   private initialized = false;
 
+  /** Teleport/reseed: forget the old chase state instead of swinging across. */
+  snap(flight: Flight): void {
+    this.initialized = false;
+    flight.up(this.smUp);
+  }
+
   update(dt: number, cam: THREE.PerspectiveCamera, flight: Flight,
     collide?: (p: THREE.Vector3, r: number) => void): void {
     flight.forward(_fwd);

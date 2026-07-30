@@ -99,13 +99,15 @@ function game(): void {
   let moteScaleApplied = 0.5 + 0.75 * mistScale;
   let lastBuilt = 0;
   let buildRate = 0;
+  let genQuietUntil = 0;
   const escapeVec = new THREE.Vector3();
+  const grazeProbe = new THREE.Vector3();
   const worldOccupied = (x: number, y: number, z: number, s: number) => isOccupied(x, y, z, s);
 
   // ---- UI ----
   const ui = new UI({
     initial: state,
-    onStart: () => {
+    onStart: (mode) => {
       audio.init();
       // the theme loops from the moment you take wing, and the castle
       // announces you with the attached entrance sting
@@ -240,9 +242,17 @@ function game(): void {
     spawn = world.findSpawn();
     flight.pos.copy(spawn.pos);
     flight.setLook(spawn.yaw, 0);
-    flight.vel.set(0, 0, -8);
+    // launch ALONG the new facing at cruise — not down some stale world axis
+    flight.forward(escapeVec);
+    flight.vel.copy(escapeVec).multiplyScalar(14.5 * flight.speedScale);
+    rig.snap(flight);
+    // the whole neighbourhood rebuilds at once — let it do so quietly
+    genQuietUntil = engine.time + 1.6;
+    buildRate = 0;
     menuFocus.copy(spawn.pos);
     ui.setSeedDisplay(s);
+    // a new castle is a new hunt
+    if (hunt.active) hunt.start(seed, seedStr, spawn.pos.y);
   }
 
   // ---- quality wiring ----
@@ -368,7 +378,7 @@ function game(): void {
       const inst = Math.min(delta / dt, 40);
       buildRate += (inst - buildRate) * Math.min(dt * 2.2, 1);
     }
-    if (started) audio.construction(buildRate);
+    if (started) audio.construction(t < genQuietUntil ? 0 : buildRate);
 
     // ---- Director drives presentation from the district you are inside ----
     const focus = started ? flight.pos : menuFocus;
