@@ -53,10 +53,17 @@ export interface HudData {
 const HINTS = [
   IS_TOUCH ? 'hold FLAP to surge forward · BRAKE to hover' : 'hold SPACE to surge · SHIFT to brake',
   'the castle rearranges itself — listen for the biwa',
-  IS_TOUCH ? 'drag the right side of the screen to steer' : 'press ESC to free the cursor · ⛩ settings up top',
-  IS_TOUCH ? 'drag the right side of the screen to steer' : 'press R to grow a new castle',
+  IS_TOUCH ? 'drag the right side of the screen to steer' : 'ESC pauses the castle — every dial lives in the shrine',
+  'your URL holds the seed AND your settings — share it, share the world',
   'lanterns mark the inhabited rooms',
   'dive into the dark — it goes down forever',
+];
+
+const HUNT_HINTS = [
+  'jade wisps hide where flying is dangerous — streets, interiors, facades',
+  'chain pickups fast to grow the ×combo — it fades in seconds',
+  'grazing walls at speed feeds the score — danger pays',
+  'every 100 m of new depth strikes the drum — +200',
 ];
 
 export class UI {
@@ -142,17 +149,16 @@ export class UI {
             IS_TOUCH
               ? `<div class="tour-row"><b>FLY</b>left stick steers · drag the right side to look · FLAP surges · BRAKE hovers</div>
                  <div class="tour-row"><b>NO UP</b>the castle has no gravity — loops and inverted flight are normal here</div>
-                 <div class="tour-row"><b>⛩ SETTINGS</b>top centre — quality (auto-tuned to this device), weather, mist, density, flight speed, new seeds</div>
-                 <div class="tour-row"><b>THE CASTLE</b>it rebuilds itself in waves — lanterns mark the inhabited rooms</div>`
+                 <div class="tour-row"><b>⛩ THE SHRINE</b>the gear up top pauses everything — weather, mist, illumination, density, speed, sound, quit</div>
+                 <div class="tour-row"><b>YOUR CASTLE</b>the URL holds the seed and every setting — refresh keeps it, sharing the link shares the world</div>`
               : `<div class="tour-row"><b>FLY</b>move the mouse to steer · hold SPACE / W / click to surge · SHIFT to brake</div>
-                 <div class="tour-row"><b>AEROBATICS</b>Q / E roll · there is no up here — loop, dive, fly inverted · C changes camera</div>
-                 <div class="tour-row"><b>YOUR CURSOR</b>flying captures the mouse — press ESC to free it, click the castle to fly again</div>
-                 <div class="tour-row"><b>⛩ SETTINGS</b>top centre when the cursor is free — quality (auto-tuned to your machine), weather, mist, density, flight speed · H hides the HUD · R grows a new castle · M mutes</div>`
+                 <div class="tour-row"><b>NO UP</b>Q / E roll · loop, dive, fly inverted — there is no gravity here · C changes camera</div>
+                 <div class="tour-row"><b>ESC</b>pauses the castle and opens the shrine — weather, mist, illumination, density, speed, sound, quit · ESC again or RESUME to fly on</div>
+                 <div class="tour-row"><b>YOUR CASTLE</b>the URL holds the seed and every setting — refresh keeps them, sharing the link shares the exact world · H photo mode · R new castle</div>`
           }
           <button id="tour-go">BEGIN THE DESCENT</button>
         </div>
       </div>
-      <div id="cursor-hint">cursor freed — click the castle to fly · ⛩ settings above</div>
       <div id="settings">
         <div id="pause-card">
           <div class="pause-side">設定</div>
