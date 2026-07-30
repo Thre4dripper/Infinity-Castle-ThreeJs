@@ -17,7 +17,9 @@ export interface UIInitial {
 
 export interface UIOptions {
   initial: UIInitial;
-  onStart: () => void;
+  onStart: (mode: 'free' | 'hunt') => void;
+  onDaily: () => void;
+  onShare: () => string;
   onSeed: (seed: string) => void;
   onQuality: (tier: number | null) => void;
   onMotion: (v: number) => void;
@@ -69,6 +71,8 @@ export class UI {
   private hintTimer: number | null = null;
   private started = false;
   private pauseOpenedAt = 0;
+  private pendingMode: 'free' | 'hunt' = 'free';
+  private hintPool: string[] = HINTS;
 
   /** Everything that actually starts the game — shared by intro and tour. */
   private begin(): void {
@@ -76,7 +80,7 @@ export class UI {
     this.intro.classList.add('hidden');
     this.hud.classList.add('on');
     this.startHints();
-    this.o.onStart();
+    this.o.onStart(this.pendingMode);
   }
 
   constructor(private o: UIOptions) {
@@ -88,6 +92,11 @@ export class UI {
         <div class="title-en">Infinity Castle</div>
         <div class="title-sub">an endless procedural descent</div>
         <button id="start-btn">TAKE WING</button>
+        <div id="mode-row">
+          <button id="hunt-btn">狩 BEGIN THE HUNT</button>
+          <button id="daily-btn">日 TODAY'S CASTLE</button>
+        </div>
+        <div id="mode-note">the hunt — chase spirit wisps for score · today's castle — one shared world for everyone, new each day</div>
         <div class="controls-hint">${
           IS_TOUCH
             ? '<span><b>left stick</b> steer</span><span><b>right drag</b> look</span><span><b>FLAP</b> surge</span><span><b>BRAKE</b> hover</span>'
@@ -101,6 +110,12 @@ export class UI {
           <div>SPD <b id="h-spd">0</b></div>
           <div>ALT <b id="h-alt">0</b></div>
           <div>WAVES <b id="h-waves">0</b></div>
+        </div>
+        <div id="score-row">
+          <div id="h-score">0</div>
+          <div id="h-combo"></div>
+          <div id="combo-bar"><i></i></div>
+          <div id="h-best"></div>
         </div>
         <div class="hud-tr">
           <div><b id="h-fps">0</b> FPS</div>
@@ -180,6 +195,7 @@ export class UI {
             <div class="set-row"><label>sfx volume</label><input id="s-sfx" type="range" min="0" max="100" value="${ini.sfx}"/></div>
             <div class="set-row"><label>mute</label><input id="s-mute" type="checkbox"/></div>
             <div class="pause-actions">
+              <button id="p-share">共 SHARE RESULT</button>
               <button id="p-resume">↩ RESUME THE DESCENT</button>
               <button id="p-quit">鳥居 QUIT TO GATE</button>
             </div>
@@ -205,8 +221,28 @@ export class UI {
 
     document.getElementById('start-btn')!.addEventListener('click', () => {
       // every flight begins with the field guide — BEGIN is the real launch
+      this.pendingMode = 'free';
       this.intro.classList.add('hidden');
       document.getElementById('tour')!.classList.add('open');
+    });
+    document.getElementById('hunt-btn')!.addEventListener('click', () => {
+      this.pendingMode = 'hunt';
+      this.intro.classList.add('hidden');
+      document.getElementById('tour')!.classList.add('open');
+    });
+    document.getElementById('daily-btn')!.addEventListener('click', () => {
+      // everyone in the world gets the same castle today
+      this.pendingMode = 'hunt';
+      o.onDaily();
+      this.intro.classList.add('hidden');
+      document.getElementById('tour')!.classList.add('open');
+    });
+    document.getElementById('p-share')!.addEventListener('click', () => {
+      const btn = document.getElementById('p-share')!;
+      void navigator.clipboard.writeText(o.onShare()).then(() => {
+        btn.textContent = '✓ COPIED';
+        window.setTimeout(() => (btn.textContent = '共 SHARE RESULT'), 1600);
+      }).catch(() => { /* clipboard unavailable */ });
     });
     document.getElementById('tour-go')!.addEventListener('click', () => {
       document.getElementById('tour')!.classList.remove('open');
@@ -309,12 +345,30 @@ export class UI {
     this.o.onPause(false);
   }
 
+  /** Toggle the scoring layer's HUD — hunt mode on/off. */
+  setHunt(on: boolean): void {
+    document.getElementById('score-row')!.classList.toggle('on', on);
+    (document.getElementById('p-share') as HTMLElement).style.display = on ? '' : 'none';
+    this.hintPool = on ? [...HUNT_HINTS, ...HINTS] : HINTS;
+    this.hintIdx = 0;
+  }
+
+  updateScore(score: number, combo: number, comboFrac: number, best: number): void {
+    document.getElementById('h-score')!.textContent = Math.floor(score).toLocaleString();
+    const c = document.getElementById('h-combo')!;
+    c.textContent = combo > 1 ? '×' + combo : '';
+    (document.getElementById('combo-bar')!.firstElementChild as HTMLElement).style.width =
+      (comboFrac * 100).toFixed(0) + '%';
+    document.getElementById('h-best')!.textContent =
+      best > 0 ? 'best ' + best.toLocaleString() : '';
+  }
+
   /** Legacy hook — pause handles cursor state now. */
   setCursorFree(_free: boolean): void { /* superseded by the pause menu */ }
 
   private startHints(): void {
     const show = () => {
-      this.hint.textContent = HINTS[this.hintIdx % HINTS.length];
+      this.hint.textContent = this.hintPool[this.hintIdx % this.hintPool.length];
       this.hintIdx++;
       this.hint.classList.add('show');
       window.setTimeout(() => this.hint.classList.remove('show'), 6000);

@@ -310,13 +310,16 @@
     }
     .set-btn:hover { border-color: var(--gold); color: var(--gold); }
     .pause-actions {
-      display: flex; gap: 10px; margin-top: 20px; padding-top: 16px;
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; padding-top: 16px;
       border-top: 1px solid var(--line);
     }
     .pause-actions button {
       flex: 1; padding: 12px 10px; cursor: pointer; font-family: inherit;
-      font-size: 12px; letter-spacing: 0.24em; transition: all 0.25s;
+      font-size: 12px; letter-spacing: 0.18em; transition: all 0.25s; white-space: nowrap;
     }
+    /* the share button (hunt only) takes its own full row so RESUME and QUIT
+       never get squeezed into wrapping */
+    #p-share { flex: 1 1 100%; }
     #p-resume {
       background: linear-gradient(180deg, rgba(150,40,26,0.5), rgba(110,26,18,0.5));
       color: var(--ink); border: 1px solid rgba(220,110,60,0.5);
@@ -326,6 +329,53 @@
       background: transparent; color: var(--ink-dim); border: 1px solid var(--line);
     }
     #p-quit:hover { border-color: #c04a28; color: #e86a3c; }
+    #p-share {
+      background: rgba(20,60,40,0.35); color: #9fd8b4; border: 1px solid rgba(110,220,160,0.35);
+    }
+    #p-share:hover { border-color: #7de8a8; color: #d2ffdf; }
+
+    /* ---------- gate modes ---------- */
+    #mode-row { display: flex; gap: 10px; margin-top: 12px; justify-content: center; }
+    #hunt-btn, #daily-btn {
+      padding: 9px 18px; cursor: pointer; font-family: inherit;
+      font-size: 11px; letter-spacing: 0.26em; transition: all 0.25s;
+      background: rgba(20,60,40,0.30); color: #9fd8b4;
+      border: 1px solid rgba(110,220,160,0.35); white-space: nowrap;
+    }
+    #hunt-btn:hover, #daily-btn:hover {
+      border-color: #7de8a8; color: #d2ffdf; box-shadow: 0 0 16px rgba(90,220,150,0.25);
+    }
+    #daily-btn { background: rgba(14,40,30,0.28); color: #7fbf98; }
+    #mode-note {
+      margin-top: 9px; font-size: 10px; letter-spacing: 0.14em;
+      color: var(--ink-dim); opacity: 0.85;
+    }
+
+    /* ---------- hunt score ---------- */
+    #score-row {
+      position: absolute; top: max(12px, env(safe-area-inset-top)); left: 50%;
+      transform: translateX(-50%) translateY(40px);
+      display: none; flex-direction: column; align-items: center; gap: 3px;
+      pointer-events: none; text-align: center;
+    }
+    #score-row.on { display: flex; }
+    #h-score {
+      font-size: 26px; letter-spacing: 0.14em; color: #d2ffdf;
+      text-shadow: 0 0 14px rgba(90,220,150,0.5), 0 2px 4px #000;
+    }
+    #h-combo {
+      font-size: 15px; color: #7de8a8; letter-spacing: 0.2em; min-height: 18px;
+      text-shadow: 0 0 10px rgba(90,220,150,0.6);
+    }
+    #combo-bar {
+      width: 90px; height: 2px; background: rgba(110,220,160,0.15); overflow: hidden;
+    }
+    #combo-bar i {
+      display: block; height: 100%; width: 0;
+      background: linear-gradient(90deg, #7de8a8, #d2ffdf);
+      transition: width 0.15s linear;
+    }
+    #h-best { font-size: 10px; letter-spacing: 0.22em; color: var(--ink-dim); }
 
     /* homepage github link */
     #gh-link {
