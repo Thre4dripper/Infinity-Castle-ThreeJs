@@ -18,6 +18,7 @@ import { Mist } from './fx/mist';
 import { Weather } from './fx/weather';
 import { Post } from './fx/post';
 import { AudioEngine } from './audio/audio';
+import { Hunt } from './game/hunt';
 import { UI } from './ui/ui';
 
 const params = new URLSearchParams(location.search);
@@ -83,6 +84,8 @@ function game(): void {
   engine.scene.add(crow.root);
   const flight = new Flight();
   const rig = new CameraRig();
+  const hunt = new Hunt();
+  engine.scene.add(hunt.points);
 
   let spawn = world.findSpawn();
   flight.pos.copy(spawn.pos);
@@ -111,7 +114,21 @@ function game(): void {
       input.enabled = true;
       input.requestLock();
       started = true;
+      if (mode === 'hunt') {
+        hunt.start(seed, seedStr, flight.pos.y);
+        ui.setHunt(true);
+      } else {
+        hunt.stop();
+        ui.setHunt(false);
+      }
     },
+    onDaily: () => {
+      // one castle per day, shared by everyone on Earth
+      const d = new Date();
+      const key = `daily-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+      reseed(key);
+    },
+    onShare: () => hunt.shareText(),
     onSeed: (s) => reseed(s),
     onQuality: (t) => {
       state.q = t === null ? 'auto' : String(t);
@@ -239,6 +256,7 @@ function game(): void {
     motes.setCount(Math.round(s.motes * moteScaleApplied));
     mist.setLayers(s.mistLayers);
     post.setEnabled(s.bloom);
+    hunt.setPixelRatio(engine.renderer.getPixelRatio());
     // fog is thin enough to see landmarks and far-field districts loom
     baseFog = 0.75 / (s.radiusCells * CELL);
   };
@@ -260,6 +278,10 @@ function game(): void {
   choreo.onBeat = (delay, strength) => audio.beat(delay, strength);
   choreo.onFrontPass = () => ui.beatFlash();
   flight.onFlap = () => audio.flap();
+  hunt.onScore = (kind, combo) => {
+    if (kind === 'wisp') audio.wispChime(combo);
+    else audio.depthDrum();
+  };
 
   // ---- HUD bookkeeping ----
   let fpsAcc = 0;
@@ -309,6 +331,20 @@ function game(): void {
         collideSphere(world, p, null, r);
       });
       audio.wind(flight.speed);
+
+      // ---- the hunt: wisps, combo, and danger-pay ----
+      if (hunt.active) {
+        // graze probe: a fat ghost sphere — if it would be pushed, we are
+        // skimming architecture. The real 0.45 m sphere didn't hit, so this
+        // is flying CLOSE, which is exactly what pays.
+        let grazing = false;
+        if (!ghost && flight.speed > 18 && hit === 0) {
+          grazeProbe.copy(flight.pos);
+          grazing = collideSphere(world, grazeProbe, null, 2.4) > 0;
+        }
+        hunt.update(dt, flight.pos, flight.speed, grazing);
+        ui.updateScore(hunt.score, hunt.combo, hunt.comboFraction, hunt.best);
+      }
     } else {
       // menu: slow drift around the spawn area
       const a = t * 0.06;
@@ -400,5 +436,5 @@ function game(): void {
   engine.start();
 
   // debug handle for dev tooling
-  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality, input, weather, audio };
+  (window as unknown as Record<string, unknown>).__ic = { engine, world, choreo, flight, quality, input, weather, audio, hunt };
 }
