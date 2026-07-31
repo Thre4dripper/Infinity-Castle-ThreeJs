@@ -34,6 +34,12 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Set a `SITE_URL` repository variable when you move to a custom
+          # domain (Settings → Secrets and variables → Actions → Variables),
+          # e.g. https://castle.example.dev/ — canonical, Open Graph, JSON-LD,
+          # sitemap, robots and the CNAME file all follow it automatically.
+          SITE_URL: ${{ vars.SITE_URL }}
 
       - uses: actions/configure-pages@v6
 
