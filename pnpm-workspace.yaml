@@ -1,0 +1,3 @@
+# pnpm settings — esbuild's postinstall downloads its platform binary
+allowBuilds:
+  esbuild: true

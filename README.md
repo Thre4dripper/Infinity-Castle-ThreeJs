@@ -75,8 +75,8 @@ Karplus-Strong biwa strings. Filtered-noise wind that tracks airspeed. And the c
 ## Take wing
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 **Every setting lives in the URL** — seed, weather, density, illumination, volumes — so a refresh keeps your world and a link *shares* it:
@@ -102,7 +102,7 @@ Touch: joystick appears wherever your left thumb lands, right side drags to look
 
 Push to `main` → GitHub Actions typechecks, builds and deploys to Pages ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)). One-time setup: **Settings → Pages → Source → GitHub Actions**. `base: './'` and relative asset paths make the build work at any URL.
 
-**Moving to a custom domain** is a one-variable change. Set a repository variable `SITE_URL` (*Settings → Secrets and variables → Actions → Variables*), e.g. `https://castle.example.dev/`, and the build regenerates the canonical link, Open Graph and Twitter tags, JSON-LD, `sitemap.xml`, `robots.txt` — and writes the `CNAME` file Pages needs — all from that one value. Locally: `SITE_URL=https://castle.example.dev/ npm run build`.
+**Moving to a custom domain** is a one-variable change. Set a repository variable `SITE_URL` (*Settings → Secrets and variables → Actions → Variables*), e.g. `https://castle.example.dev/`, and the build regenerates the canonical link, Open Graph and Twitter tags, JSON-LD, `sitemap.xml`, `robots.txt` — and writes the `CNAME` file Pages needs — all from that one value. Locally: `SITE_URL=https://castle.example.dev/ pnpm run build`.
 
 ## Architecture
 
