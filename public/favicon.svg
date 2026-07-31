@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="62%" r="62%">
+      <stop offset="0%" stop-color="#8a3a12"/>
+      <stop offset="55%" stop-color="#2a1208"/>
+      <stop offset="100%" stop-color="#07050e"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#g)"/>
+  <!-- torii: kasagi (curved crown), shimaki, nuki, and two pillars -->
+  <g fill="#e0563a">
+    <path d="M6 17c8-4 44-4 52 0l-2 5c-8-3-40-3-48 0z"/>
+    <rect x="9" y="24" width="46" height="4.5" rx="1"/>
+    <rect x="15" y="27" width="7" height="30" rx="1.2"/>
+    <rect x="42" y="27" width="7" height="30" rx="1.2"/>
+  </g>
+  <!-- lantern hanging in the gate -->
+  <ellipse cx="32" cy="38" rx="5" ry="6" fill="#ffb457"/>
+  <ellipse cx="32" cy="38" rx="2.6" ry="3.4" fill="#fff0c9"/>
+  <rect x="31.2" y="28.5" width="1.6" height="4" fill="#6b5636"/>
+</svg>
