@@ -373,13 +373,36 @@
     }
     #h-best { font-size: 10px; letter-spacing: 0.22em; color: var(--ink-dim); }
 
-    /* homepage github link */
+    /* homepage github link — bright enough to actually be found */
     #gh-link {
-      display: inline-block; margin-top: 18px; font-size: 11px; letter-spacing: 0.22em;
-      color: var(--gold-dim); text-decoration: none; border-bottom: 1px solid transparent;
-      transition: all 0.25s; text-transform: uppercase;
+      display: inline-block; margin-top: 18px; padding: 8px 18px;
+      font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #ffd98a; text-decoration: none;
+      background: rgba(60,38,10,0.45); border: 1px solid rgba(255,200,110,0.45);
+      text-shadow: 0 0 12px rgba(255,190,90,0.5);
+      transition: all 0.25s; animation: star-breathe 3.2s ease-in-out infinite;
     }
-    #gh-link:hover { color: var(--gold); border-bottom-color: var(--gold-dim); }
+    #gh-link:hover {
+      color: #fff3d0; border-color: var(--gold);
+      box-shadow: 0 0 22px rgba(255,190,90,0.35); animation-play-state: paused;
+    }
+    @keyframes star-breathe {
+      0%, 100% { box-shadow: 0 0 6px rgba(255,190,90,0.12); }
+      50% { box-shadow: 0 0 18px rgba(255,190,90,0.35); }
+    }
+    /* the shrine's ask — same lantern-glow treatment as the gate */
+    #p-star {
+      display: block; margin-top: 16px; padding: 10px 16px; text-align: center;
+      font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: #ffd98a; text-decoration: none;
+      background: rgba(60,38,10,0.45); border: 1px solid rgba(255,200,110,0.45);
+      text-shadow: 0 0 12px rgba(255,190,90,0.5);
+      transition: all 0.25s; animation: star-breathe 3.2s ease-in-out infinite;
+    }
+    #p-star:hover {
+      color: #fff3d0; border-color: var(--gold);
+      box-shadow: 0 0 22px rgba(255,190,90,0.35); animation-play-state: paused;
+    }
 
     /* ---------- touch controls ---------- */
     #touch-ui { position: absolute; inset: 0; display: none; }

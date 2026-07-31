@@ -110,7 +110,7 @@ export class UI {
             : '<span><b>mouse / arrows / AD</b> steer</span><span><b>Q / E</b> roll</span><span><b>space / W / click</b> surge</span><span><b>shift / S</b> brake</span><span><b>C</b> camera</span><span><b>ESC</b> pause</span><span><b>R</b> new castle</span><span><b>M</b> mute</span>'
         }</div>
         <div class="seed-line">SEED ${this.esc(ini.seed)}</div>
-        <a id="gh-link" href="https://github.com/Thre4dripper/Infinity-Castle-ThreeJs" target="_blank" rel="noopener">⬆ open source · star it on GitHub</a>
+        <a id="gh-link" href="https://github.com/Thre4dripper/Infinity-Castle-ThreeJs" target="_blank" rel="noopener">★ open source — star it on GitHub</a>
       </div>
       <div id="hud">
         <div class="hud-tl">
@@ -205,6 +205,7 @@ export class UI {
               <button id="p-resume">↩ RESUME THE DESCENT</button>
               <button id="p-quit">鳥居 QUIT TO GATE</button>
             </div>
+            <a id="p-star" href="https://github.com/Thre4dripper/Infinity-Castle-ThreeJs" target="_blank" rel="noopener">★ enjoying the descent? star it on GitHub — it keeps the castle growing</a>
           </div>
         </div>
       </div>
