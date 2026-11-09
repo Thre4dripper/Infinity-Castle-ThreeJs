@@ -14,10 +14,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "0.186.1"
+    "three": "0.187.0"
   },
   "devDependencies": {
-    "@types/three": "0.185.1",
+    "@types/three": "0.187.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
   }
