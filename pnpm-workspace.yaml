@@ -1,3 +1,5 @@
-# pnpm settings — esbuild's postinstall downloads its platform binary
+# pnpm settings — esbuild's postinstall downloads its platform binary;
+# workerd (pulled in by wrangler) does the same for the Workers runtime.
 allowBuilds:
   esbuild: true
+  workerd: true
